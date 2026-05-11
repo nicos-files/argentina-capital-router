@@ -1,0 +1,58 @@
+[
+  {
+    "ticker": "JPM",
+    "rows": 76,
+    "mean_ret_adj": 0.007887184392691293,
+    "median_ret_adj": 0.007853951973164408,
+    "hit_rate": 1.0,
+    "mean_proba": 0.9878867135236138
+  },
+  {
+    "ticker": "V",
+    "rows": 75,
+    "mean_ret_adj": 0.004581469813071315,
+    "median_ret_adj": 0.004620704427920064,
+    "hit_rate": 1.0,
+    "mean_proba": 0.9929355820020039
+  },
+  {
+    "ticker": "MSFT",
+    "rows": 76,
+    "mean_ret_adj": 0.004467821274152391,
+    "median_ret_adj": 0.0044339602035690096,
+    "hit_rate": 1.0,
+    "mean_proba": 0.9924112103487316
+  },
+  {
+    "ticker": "NZDUSD.FX",
+    "rows": 19,
+    "mean_ret_adj": 0.0012052607096921973,
+    "median_ret_adj": 0.0009948598905655803,
+    "hit_rate": 0.5263157894736842,
+    "mean_proba": 0.6660686574484173
+  },
+  {
+    "ticker": "AAPL",
+    "rows": 19,
+    "mean_ret_adj": 0.0008941116579075136,
+    "median_ret_adj": 0.0019232248634510896,
+    "hit_rate": 0.5789473684210527,
+    "mean_proba": 0.7759738564491272
+  },
+  {
+    "ticker": "AUDUSD.FX",
+    "rows": 22,
+    "mean_ret_adj": 0.00010513763638471018,
+    "median_ret_adj": 0.0024178856318844977,
+    "hit_rate": 0.5909090909090909,
+    "mean_proba": 0.7471917569637299
+  },
+  {
+    "ticker": "EURUSD.FX",
+    "rows": 9,
+    "mean_ret_adj": -0.00028191018117451616,
+    "median_ret_adj": -0.0011040339702760305,
+    "hit_rate": 0.4444444444444444,
+    "mean_proba": 0.6233549316724142
+  }
+]

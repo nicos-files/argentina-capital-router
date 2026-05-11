@@ -1,0 +1,197 @@
+{
+    "workflow_version":  "1.2.0",
+    "timestamps":  {
+                       "started":  "2026-01-08T23:31:33-03:00",
+                       "last_updated":  "2026-01-08T23:31:33-03:00",
+                       "completed":  "2026-01-08T23:31:33-03:00"
+                   },
+    "mode":  "initial_scan",
+    "scan_level":  "deep",
+    "project_root":  "\\\\\\\\wsl.localhost\\\\Ubuntu\\\\home\\\\naguilar\\\\projects\\\\quant-trading-bot",
+    "output_folder":  "docs",
+    "completed_steps":  [
+                            {
+                                "outputs":  [
+                                                "project-structure.md",
+                                                "project-parts-metadata.json"
+                                            ],
+                                "step":  "step_1",
+                                "timestamp":  "2026-01-08T23:31:33-03:00",
+                                "summary":  "Classified as monolith with 1 part",
+                                "status":  "completed"
+                            },
+                            {
+                                "outputs":  [
+                                                "existing-documentation-inventory.md",
+                                                "user-provided-context.md"
+                                            ],
+                                "step":  "step_2",
+                                "timestamp":  "2026-01-08T23:31:33-03:00",
+                                "summary":  "Found README and captured focus areas",
+                                "status":  "completed"
+                            },
+                            {
+                                "outputs":  [
+                                                "technology-stack.md",
+                                                "architecture-patterns.md"
+                                            ],
+                                "step":  "step_3",
+                                "timestamp":  "2026-01-08T23:31:33-03:00",
+                                "summary":  "Tech stack captured for Python data pipeline",
+                                "status":  "completed"
+                            },
+                            {
+                                "outputs":  [
+                                                "data-models-main.md",
+                                                "comprehensive-analysis-main.md"
+                                            ],
+                                "step":  "step_4",
+                                "timestamp":  "2026-01-08T23:31:33-03:00",
+                                "summary":  "Conditional analysis complete",
+                                "status":  "completed"
+                            },
+                            {
+                                "outputs":  [
+                                                "source-tree-analysis.md"
+                                            ],
+                                "step":  "step_5",
+                                "timestamp":  "2026-01-08T23:31:33-03:00",
+                                "summary":  "Source tree documented",
+                                "status":  "completed"
+                            },
+                            {
+                                "outputs":  [
+                                                "development-instructions.md",
+                                                "deployment-configuration.md",
+                                                "contribution-guidelines.md"
+                                            ],
+                                "step":  "step_6",
+                                "timestamp":  "2026-01-08T23:31:33-03:00",
+                                "summary":  "Dev/deployment guides written",
+                                "status":  "completed"
+                            },
+                            {
+                                "outputs":  [
+                                                "architecture.md"
+                                            ],
+                                "step":  "step_8",
+                                "timestamp":  "2026-01-08T23:31:33-03:00",
+                                "summary":  "Architecture docs written for 1 part",
+                                "status":  "completed"
+                            },
+                            {
+                                "outputs":  [
+                                                "project-overview.md",
+                                                "component-inventory.md",
+                                                "development-guide.md",
+                                                "data-models.md"
+                                            ],
+                                "step":  "step_9",
+                                "timestamp":  "2026-01-08T23:31:33-03:00",
+                                "summary":  "All supporting docs written",
+                                "status":  "completed"
+                            },
+                            {
+                                "outputs":  [
+                                                "index.md"
+                                            ],
+                                "step":  "step_10",
+                                "timestamp":  "2026-01-08T23:31:33-03:00",
+                                "summary":  "Master index generated",
+                                "status":  "completed"
+                            },
+                            {
+                                "outputs":  [
+
+                                            ],
+                                "step":  "step_11",
+                                "timestamp":  "2026-01-08T23:31:33-03:00",
+                                "summary":  "Validation and review complete",
+                                "status":  "completed"
+                            },
+                            {
+                                "outputs":  [
+                                                "final-summary.md"
+                                            ],
+                                "step":  "step_12",
+                                "timestamp":  "2026-01-08T23:31:33-03:00",
+                                "summary":  "Workflow complete",
+                                "status":  "completed"
+                            }
+                        ],
+    "current_step":  "completed",
+    "findings":  {
+                     "project_classification":  {
+                                                    "repository_type":  "monolith",
+                                                    "parts_count":  1,
+                                                    "primary_language":  "Python",
+                                                    "architecture_type":  "data pipeline"
+                                                },
+                     "technology_stack":  [
+                                              {
+                                                  "tech_summary":  "Python, pandas/numpy, ML (sklearn/xgboost/lightgbm/torch), orchestration (prefect), backtesting (backtesting/vectorbt), optimization (cvxpy)",
+                                                  "part_id":  "main"
+                                              }
+                                          ],
+                     "batches_completed":  [
+                                               {
+                                                   "summary":  "ETL orchestration, state/log outputs, daily consolidation",
+                                                   "path":  "src/orchestrator",
+                                                   "files_scanned":  1
+                                               },
+                                               {
+                                                   "summary":  "Ingest and processing modules",
+                                                   "path":  "src/execution",
+                                                   "files_scanned":  14
+                                               },
+                                               {
+                                                   "summary":  "Feature engineering, model training, signal generation",
+                                                   "path":  "src/pipeline",
+                                                   "files_scanned":  3
+                                               },
+                                               {
+                                                   "summary":  "Backtest pipeline and metrics",
+                                                   "path":  "src/backtest",
+                                                   "files_scanned":  6
+                                               },
+                                               {
+                                                   "summary":  "Technical indicator calculations",
+                                                   "path":  "src/features",
+                                                   "files_scanned":  1
+                                               },
+                                               {
+                                                   "summary":  "LLM agents and orchestration",
+                                                   "path":  "src/agents",
+                                                   "files_scanned":  8
+                                               },
+                                               {
+                                                   "summary":  "Execution context, logging, cache",
+                                                   "path":  "src/utils",
+                                                   "files_scanned":  3
+                                               }
+                                           ]
+                 },
+    "outputs_generated":  [
+                              "component-inventory.md",
+                              "deployment-configuration.md",
+                              "user-provided-context.md",
+                              "project-parts-metadata.json",
+                              "index.md",
+                              "existing-documentation-inventory.md",
+                              "data-models.md",
+                              "contribution-guidelines.md",
+                              "final-summary.md",
+                              "source-tree-analysis.md",
+                              "project-overview.md",
+                              "project-structure.md",
+                              "comprehensive-analysis-main.md",
+                              "development-instructions.md",
+                              "architecture-patterns.md",
+                              "project-scan-report.json",
+                              "data-models-main.md",
+                              "architecture.md",
+                              "development-guide.md",
+                              "technology-stack.md"
+                          ],
+    "resume_instructions":  "Workflow completed. Start a new workflow from the router if needed."
+}

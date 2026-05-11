@@ -1,0 +1,9 @@
+from __future__ import annotations
+
+from src.decision_intel.contracts.metadata_models import CURRENT_SCHEMA_VERSION, MIN_READER_VERSION
+
+
+RECOMMENDATION_SCHEMA_VERSION = CURRENT_SCHEMA_VERSION
+RECOMMENDATION_READER_MIN_VERSION = MIN_READER_VERSION
+RECOMMENDATION_ARTIFACT_NAME = "recommendation.outputs"
+RECOMMENDATION_ARTIFACT_TYPE = "recommendation.outputs"

@@ -1,0 +1,17 @@
+metric,value,run_id,strategy_id,variant_id,horizon
+evaluated_rows,1339,20260422-1920,quant_trading_bot,,SHORT
+evaluation_mode,oos_holdout,20260422-1920,quant_trading_bot,,SHORT
+max_drawdown,0.0,20260422-1920,quant_trading_bot,,SHORT
+operations,266,20260422-1920,quant_trading_bot,,SHORT
+purge_days,1,20260422-1920,quant_trading_bot,,SHORT
+purge_end_date,2026-02-04,20260422-1920,quant_trading_bot,,SHORT
+purge_start_date,2026-02-04,20260422-1920,quant_trading_bot,,SHORT
+ret_daily_mean,0.008803348552684914,20260422-1920,quant_trading_bot,,SHORT
+ret_total,0.9464348118583272,20260422-1920,quant_trading_bot,,SHORT
+selected_features_count,31,20260422-1920,quant_trading_bot,,SHORT
+test_days,76,20260422-1920,quant_trading_bot,,SHORT
+test_end_date,2026-04-21,20260422-1920,quant_trading_bot,,SHORT
+test_start_date,2026-02-05,20260422-1920,quant_trading_bot,,SHORT
+train_days,176,20260422-1920,quant_trading_bot,,SHORT
+train_end_date,2026-02-03,20260422-1920,quant_trading_bot,,SHORT
+train_start_date,2025-08-12,20260422-1920,quant_trading_bot,,SHORT

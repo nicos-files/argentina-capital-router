@@ -1,0 +1,902 @@
+{
+  "project_root": "C:\\Users\\NAguilar\\Proyectos\\AutoGen\\quant-trading-bot",
+  "folders": [
+    ".",
+    "configs",
+    "data",
+    "data\\cache",
+    "data\\debug",
+    "data\\exports",
+    "data\\indexes",
+    "data\\logs",
+    "data\\processed",
+    "data\\processed_daily",
+    "data\\raw",
+    "data\\results",
+    "driver",
+    "models",
+    "notebooks",
+    "simulations",
+    "src",
+    "src\\agents",
+    "src\\agents\\llm_wrappers",
+    "src\\autogen",
+    "src\\autogen\\workflows",
+    "src\\backtest",
+    "src\\data",
+    "src\\data\\logs",
+    "src\\data\\processed",
+    "src\\data\\raw",
+    "src\\execution",
+    "src\\execution\\curated",
+    "src\\execution\\ingest",
+    "src\\execution\\process",
+    "src\\features",
+    "src\\models",
+    "src\\orchestrator",
+    "src\\pipeline",
+    "src\\sanity_check",
+    "src\\simulations",
+    "src\\utils",
+    "tests"
+  ],
+  "scripts": {
+    "main.py": {
+      "docstring": null,
+      "classes": [],
+      "functions": [],
+      "imports": [
+        "src.utils.hello"
+      ],
+      "subprocess_calls": []
+    },
+    "migrate_data_to_root.py": {
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        "move_data_files"
+      ],
+      "imports": [
+        "shutil",
+        "pathlib"
+      ],
+      "subprocess_calls": []
+    },
+    "project_summary.py": {
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        "is_excluded",
+        "is_data_deep",
+        "summarize_python_file",
+        "detect_requirements",
+        "walk_project"
+      ],
+      "imports": [
+        "os",
+        "ast",
+        "json"
+      ],
+      "subprocess_calls": []
+    },
+    "src\\run.py": {
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        "parse_args",
+        "main"
+      ],
+      "imports": [
+        "os",
+        "sys",
+        "argparse",
+        "subprocess",
+        "dotenv",
+        "src.utils.execution_context",
+        "src.agents.orchestrator_agent"
+      ],
+      "subprocess_calls": [
+        "subprocess.run(cmd)"
+      ]
+    },
+    "src\\agents\\agent_definitions.py": {
+      "docstring": null,
+      "classes": [],
+      "functions": [],
+      "imports": [
+        "os",
+        "dotenv",
+        "src.agents.sentiment_agent",
+        "src.agents.strategy_agent",
+        "src.agents.user_agent"
+      ],
+      "subprocess_calls": []
+    },
+    "src\\agents\\intraday_agent.py": {
+      "docstring": null,
+      "classes": [
+        "IntradayDecisionAgent"
+      ],
+      "functions": [
+        "__init__",
+        "decide",
+        "_build_prompt",
+        "_parse_response",
+        "save_decision",
+        "export_decision"
+      ],
+      "imports": [
+        "os",
+        "json",
+        "typing",
+        "autogen",
+        "pandas",
+        "datetime"
+      ],
+      "subprocess_calls": []
+    },
+    "src\\agents\\long_term_agent.py": {
+      "docstring": null,
+      "classes": [
+        "LongTermDecisionAgent"
+      ],
+      "functions": [
+        "__init__",
+        "run",
+        "load_signals",
+        "prepare_context",
+        "decide",
+        "_build_prompt",
+        "_parse_response",
+        "save_decision",
+        "export_decision"
+      ],
+      "imports": [
+        "os",
+        "json",
+        "pandas",
+        "typing",
+        "autogen",
+        "datetime"
+      ],
+      "subprocess_calls": []
+    },
+    "src\\agents\\orchestrator_agent.py": {
+      "docstring": null,
+      "classes": [
+        "OrchestratorDecisionAgent"
+      ],
+      "functions": [
+        "__init__",
+        "run_day",
+        "_run_modeling_pipeline",
+        "_run_etl_with_retries",
+        "_build_context",
+        "_validate_context",
+        "_sanitize_decision",
+        "_save_decision",
+        "_load_signals",
+        "_load_backtest",
+        "_load_sentiment",
+        "_log_day_summary",
+        "_log_info",
+        "_load_backtest",
+        "_load_sentiment",
+        "run_script",
+        "clean_list"
+      ],
+      "imports": [
+        "pathlib",
+        "json",
+        "time",
+        "traceback",
+        "pandas",
+        "typing",
+        "sys",
+        "subprocess",
+        "pathlib",
+        "src.orchestrator.data_orchestrator",
+        "src.autogen.orchestrator",
+        "src.agents.long_term_agent",
+        "src.agents.intraday_agent",
+        "src.utils.llm_logger"
+      ],
+      "subprocess_calls": [
+        "subprocess.run(cmd, capture_output=True, text=True)"
+      ]
+    },
+    "src\\agents\\sentiment_agent.py": {
+      "docstring": null,
+      "classes": [
+        "SentimentAgent"
+      ],
+      "functions": [
+        "__init__",
+        "relevance_filter",
+        "process_sentiment"
+      ],
+      "imports": [
+        "os",
+        "openai",
+        "dotenv"
+      ],
+      "subprocess_calls": []
+    },
+    "src\\agents\\strategy_agent.py": {
+      "docstring": null,
+      "classes": [
+        "StrategyAgent"
+      ],
+      "functions": [
+        "__init__",
+        "generate_strategy"
+      ],
+      "imports": [
+        "os",
+        "openai"
+      ],
+      "subprocess_calls": []
+    },
+    "src\\agents\\user_agent.py": {
+      "docstring": null,
+      "classes": [
+        "UserAgent"
+      ],
+      "functions": [
+        "__init__",
+        "present_sentiment",
+        "present_strategy",
+        "present_summary"
+      ],
+      "imports": [],
+      "subprocess_calls": []
+    },
+    "src\\agents\\llm_wrappers\\gpt4all_agent.py": {
+      "docstring": null,
+      "classes": [
+        "GPT4AllAgent"
+      ],
+      "functions": [
+        "__init__",
+        "generate_reply"
+      ],
+      "imports": [
+        "autogen",
+        "gpt4all",
+        "time"
+      ],
+      "subprocess_calls": []
+    },
+    "src\\autogen\\orchestrator.py": {
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        "load_agent_configs",
+        "create_agents",
+        "create_orchestrator"
+      ],
+      "imports": [
+        "os",
+        "yaml",
+        "autogen"
+      ],
+      "subprocess_calls": []
+    },
+    "src\\backtest\\backtest_strategy.py": {
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        "prepare_data",
+        "run_backtest",
+        "compute_metrics",
+        "plot_equity_curve",
+        "main"
+      ],
+      "imports": [
+        "pathlib",
+        "pandas",
+        "numpy",
+        "joblib",
+        "json",
+        "matplotlib.pyplot",
+        "traceback"
+      ],
+      "subprocess_calls": []
+    },
+    "src\\execution\\debugs_agent.py": {
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        "test_agent"
+      ],
+      "imports": [
+        "time",
+        "sys",
+        "os",
+        "agents.agent_definitions"
+      ],
+      "subprocess_calls": []
+    },
+    "src\\execution\\run_pipeline.py": {
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        "map_ticker_from_title",
+        "save_sentiment_results",
+        "save_strategy",
+        "save_indicators",
+        "run_pipeline"
+      ],
+      "imports": [
+        "time",
+        "sys",
+        "os",
+        "execution.ingest.scrape_news",
+        "execution.ingest.analyze_sentiment_llm",
+        "execution.ingest.fetch_prices",
+        "execution.ingest.scrape_news",
+        "features.technical_indicators",
+        "features.fundamental_analysis",
+        "pipeline.feature_engineering",
+        "agents.strategy_llm_agent",
+        "agents.agent_definitions",
+        "pandas"
+      ],
+      "subprocess_calls": []
+    },
+    "src\\execution\\curated\\daily_consolidator.py": {
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        "now_iso",
+        "clean_numeric_columns",
+        "consolidate_module",
+        "main",
+        "es_util"
+      ],
+      "imports": [
+        "pandas",
+        "pathlib",
+        "datetime",
+        "argparse",
+        "src.utils.execution_context"
+      ],
+      "subprocess_calls": []
+    },
+    "src\\execution\\ingest\\alphaV_fetcher.py": {
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        "fetch_from_alpha_vantage",
+        "save_raw_data"
+      ],
+      "imports": [
+        "requests",
+        "pandas",
+        "os",
+        "argparse",
+        "pathlib",
+        "typing",
+        "src.utils.execution_context"
+      ],
+      "subprocess_calls": []
+    },
+    "src\\execution\\ingest\\fetch_prices.py": {
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        "save_raw_data",
+        "fetch_price_data"
+      ],
+      "imports": [
+        "time",
+        "argparse",
+        "pandas",
+        "pathlib",
+        "pandas_datareader",
+        "datetime",
+        "typing",
+        "src.utils.execution_context"
+      ],
+      "subprocess_calls": []
+    },
+    "src\\execution\\ingest\\ingest_fundamentals.py": {
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        "hash_df",
+        "save_raw_data_if_changed",
+        "fetch_fundamentals_alpha",
+        "fetch_fundamentals_finnhub"
+      ],
+      "imports": [
+        "os",
+        "requests",
+        "pandas",
+        "argparse",
+        "hashlib",
+        "pathlib",
+        "datetime",
+        "typing",
+        "src.utils.execution_context"
+      ],
+      "subprocess_calls": []
+    },
+    "src\\execution\\ingest\\ingest_sentiment.py": {
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        "hash_headline",
+        "filter_new_headlines",
+        "update_seen_hashes",
+        "save_sentiment",
+        "fetch_general_news_raw",
+        "fetch_general_reddit_raw",
+        "fetch_newsapi_sentiment",
+        "fetch_reddit_by_ticker"
+      ],
+      "imports": [
+        "os",
+        "requests",
+        "pandas",
+        "argparse",
+        "hashlib",
+        "time",
+        "pathlib",
+        "typing",
+        "src.utils.execution_context"
+      ],
+      "subprocess_calls": []
+    },
+    "src\\execution\\ingest\\investing_scraper.py": {
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        "test_chromedriver",
+        "fetch_from_investing"
+      ],
+      "imports": [
+        "selenium",
+        "selenium.webdriver.chrome.service",
+        "selenium.webdriver.chrome.options",
+        "selenium.webdriver.common.by",
+        "selenium.webdriver.support.ui",
+        "selenium.webdriver.support",
+        "pandas",
+        "datetime"
+      ],
+      "subprocess_calls": []
+    },
+    "src\\execution\\ingest\\scrape_news.py": {
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        "get_headlines_rss",
+        "get_all_headlines"
+      ],
+      "imports": [
+        "feedparser"
+      ],
+      "subprocess_calls": []
+    },
+    "src\\execution\\process\\process_fundamentals.py": {
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        "process_fundamentals"
+      ],
+      "imports": [
+        "pandas",
+        "argparse",
+        "pathlib",
+        "src.utils.execution_context"
+      ],
+      "subprocess_calls": []
+    },
+    "src\\execution\\process\\process_indicators.py": {
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        "calculate_indicators"
+      ],
+      "imports": [
+        "os",
+        "pandas",
+        "argparse",
+        "pathlib",
+        "src.utils.execution_context"
+      ],
+      "subprocess_calls": []
+    },
+    "src\\execution\\process\\process_prices.py": {
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        "set_time_index",
+        "clean_price_data"
+      ],
+      "imports": [
+        "os",
+        "pandas",
+        "argparse",
+        "pathlib",
+        "src.utils.execution_context",
+        "datetime"
+      ],
+      "subprocess_calls": []
+    },
+    "src\\execution\\process\\process_sentiment.py": {
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        "pick_text_column",
+        "extract_scores",
+        "analyze_sentiment",
+        "process_general_sentiment",
+        "process_sentiment_by_ticker",
+        "export_sentiment_summary_to_json"
+      ],
+      "imports": [
+        "os",
+        "sys",
+        "re",
+        "time",
+        "argparse",
+        "pandas",
+        "datetime",
+        "pathlib",
+        "src.agents.agent_definitions",
+        "src.utils.llm_logger",
+        "src.utils.execution_context",
+        "json"
+      ],
+      "subprocess_calls": []
+    },
+    "src\\execution\\process\\relevance_filter.py": {
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        "clean_text",
+        "load_index_hashes",
+        "es_relevante",
+        "filtrar_fuente"
+      ],
+      "imports": [
+        "os",
+        "sys",
+        "time",
+        "argparse",
+        "pandas",
+        "datetime",
+        "pathlib",
+        "textblob",
+        "re",
+        "src.agents.agent_definitions",
+        "src.utils.llm_logger",
+        "src.utils.cache_manager",
+        "src.utils.execution_context"
+      ],
+      "subprocess_calls": []
+    },
+    "src\\features\\technical_indicators.py": {
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        "calculate_indicators"
+      ],
+      "imports": [
+        "pandas",
+        "pandas_ta",
+        "os"
+      ],
+      "subprocess_calls": []
+    },
+    "src\\orchestrator\\data_orchestrator.py": {
+      "docstring": null,
+      "classes": [
+        "Args"
+      ],
+      "functions": [
+        "now_iso",
+        "load_state",
+        "save_state",
+        "log_event",
+        "run_script",
+        "latest_file",
+        "file_mtime",
+        "any_new_file_since",
+        "compare_latest_raw_vs_processed_parquet",
+        "orchestrate",
+        "run_etl_pipeline",
+        "main"
+      ],
+      "imports": [
+        "os",
+        "sys",
+        "glob",
+        "json",
+        "argparse",
+        "subprocess",
+        "typing",
+        "datetime",
+        "pathlib",
+        "pandas",
+        "src.execution.curated.daily_consolidator",
+        "src.utils.execution_context",
+        "src.utils.execution_context"
+      ],
+      "subprocess_calls": [
+        "subprocess.run(cmd, capture_output=True, text=True)"
+      ]
+    },
+    "src\\pipeline\\feature_engineering.py": {
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        "load_parquet",
+        "consolidate_daily_features",
+        "combine_features",
+        "parse_args"
+      ],
+      "imports": [
+        "os",
+        "pandas",
+        "sys",
+        "time",
+        "datetime",
+        "pathlib",
+        "argparse",
+        "src.utils.llm_logger",
+        "src.utils.execution_context"
+      ],
+      "subprocess_calls": []
+    },
+    "src\\pipeline\\generate_signals.py": {
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        "parse_args",
+        "get_latest_features_path",
+        "load_data",
+        "load_model",
+        "enrich_with_metadata",
+        "estimate_volatility_pct",
+        "infer_investment_type",
+        "score_and_predict",
+        "optional_equity",
+        "generate_signals",
+        "filter_and_rank",
+        "save_signals",
+        "save_equity_outputs",
+        "print_summary",
+        "main"
+      ],
+      "imports": [
+        "argparse",
+        "pathlib",
+        "datetime",
+        "pandas",
+        "numpy",
+        "joblib",
+        "matplotlib.pyplot"
+      ],
+      "subprocess_calls": []
+    },
+    "src\\pipeline\\train_model.py": {
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        "parse_args"
+      ],
+      "imports": [
+        "pandas",
+        "xgboost",
+        "sklearn.model_selection",
+        "sklearn.metrics",
+        "matplotlib.pyplot",
+        "numpy",
+        "joblib",
+        "os",
+        "sys",
+        "src.utils.llm_logger",
+        "datetime",
+        "time",
+        "argparse",
+        "pathlib",
+        "src.utils.execution_context"
+      ],
+      "subprocess_calls": []
+    },
+    "src\\sanity_check\\analizar_descartados.py": {
+      "docstring": null,
+      "classes": [
+        "SentimentAgentAmplio"
+      ],
+      "functions": [
+        "__init__",
+        "relevance_filter_amplio"
+      ],
+      "imports": [
+        "pandas",
+        "datetime",
+        "time",
+        "sys",
+        "src.agents.agent_definitions"
+      ],
+      "subprocess_calls": []
+    },
+    "src\\sanity_check\\comparative.py": {
+      "docstring": null,
+      "classes": [],
+      "functions": [],
+      "imports": [
+        "pandas",
+        "matplotlib.pyplot"
+      ],
+      "subprocess_calls": []
+    },
+    "src\\sanity_check\\contar_filas_parquet.py": {
+      "docstring": null,
+      "classes": [],
+      "functions": [],
+      "imports": [
+        "os",
+        "fastparquet"
+      ],
+      "subprocess_calls": []
+    },
+    "src\\sanity_check\\sanity_check_1.py": {
+      "docstring": null,
+      "classes": [],
+      "functions": [],
+      "imports": [
+        "pandas",
+        "pathlib",
+        "yaml"
+      ],
+      "subprocess_calls": []
+    },
+    "src\\sanity_check\\sanity_check_2.py": {
+      "docstring": null,
+      "classes": [],
+      "functions": [],
+      "imports": [
+        "pathlib",
+        "yaml",
+        "pandas",
+        "duckdb"
+      ],
+      "subprocess_calls": []
+    },
+    "src\\sanity_check\\sanity_check_3.py": {
+      "docstring": null,
+      "classes": [
+        "GPT4AllAgent"
+      ],
+      "functions": [
+        "__init__",
+        "generate_reply"
+      ],
+      "imports": [
+        "time",
+        "autogen",
+        "gpt4all"
+      ],
+      "subprocess_calls": []
+    },
+    "src\\sanity_check\\test_openai_llm.py": {
+      "docstring": null,
+      "classes": [],
+      "functions": [],
+      "imports": [
+        "openai",
+        "os",
+        "dotenv"
+      ],
+      "subprocess_calls": []
+    },
+    "src\\simulations\\simulate_estrategy.py": {
+      "docstring": null,
+      "classes": [],
+      "functions": [],
+      "imports": [
+        "pandas",
+        "joblib",
+        "numpy",
+        "matplotlib.pyplot",
+        "os"
+      ],
+      "subprocess_calls": []
+    },
+    "src\\utils\\cache_manager.py": {
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        "normalizar_texto",
+        "hash_text",
+        "load_cache",
+        "save_to_cache"
+      ],
+      "imports": [
+        "os",
+        "pandas",
+        "hashlib",
+        "re"
+      ],
+      "subprocess_calls": []
+    },
+    "src\\utils\\execution_context.py": {
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        "get_execution_date",
+        "get_execution_hour",
+        "ensure_date_dir",
+        "get_etl_args",
+        "get_current_args"
+      ],
+      "imports": [
+        "datetime",
+        "typing",
+        "pathlib",
+        "json",
+        "os"
+      ],
+      "subprocess_calls": []
+    },
+    "src\\utils\\llm_logger.py": {
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        "log_llm_interaction"
+      ],
+      "imports": [
+        "os",
+        "pandas",
+        "json",
+        "datetime"
+      ],
+      "subprocess_calls": []
+    },
+    "tests\\test_sanity_1.py": {
+      "docstring": null,
+      "classes": [],
+      "functions": [
+        "test_dummy_math"
+      ],
+      "imports": [],
+      "subprocess_calls": []
+    }
+  },
+  "dependencies": [
+    "pandas==2.2.2",
+    "numpy==1.26.4",
+    "duckdb==1.1.0",
+    "pyarrow==17.0.0",
+    "hydra-core==1.3.2",
+    "pyyaml==6.0.2",
+    "matplotlib==3.9.2",
+    "seaborn==0.13.2",
+    "tqdm==4.66.5",
+    "scikit-learn==1.5.1",
+    "xgboost==2.1.1",
+    "lightgbm==4.5.0",
+    "torch==2.4.1",
+    "shap==0.46.0",
+    "lime==0.2.0.1",
+    "joblib==1.4.2",
+    "autogen==0.3.0",
+    "transformers==4.44.2",
+    "gpt4all==2.8.2",
+    "accelerate==0.34.2",
+    "sentencepiece==0.2.0",
+    "yfinance==0.2.44",
+    "tweepy==4.14.0",
+    "praw==7.8.1",
+    "backtesting==0.6.5",
+    "vectorbt==0.26.0",
+    "cvxpy==1.5.3",
+    "prefect==3.0.3",
+    "dvc[ssh]==3.56.0"
+  ]
+}

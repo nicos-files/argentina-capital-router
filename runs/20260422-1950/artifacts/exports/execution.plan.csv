@@ -1,0 +1,1 @@
+order_id,run_id,asset_id,ticker,horizon,broker_selected,order_side,order_type,time_in_force,order_qty,order_notional_usd,order_notional_ccy,currency,fx_rate_used,fx_rate_source,price_used,price_source,min_notional_usd,order_status,fees_estimated_usd,fees_one_way,fees_round_trip,policy_id,policy_version,current_qty,qty_target,delta_qty,asof_date,execution_date,execution_hour

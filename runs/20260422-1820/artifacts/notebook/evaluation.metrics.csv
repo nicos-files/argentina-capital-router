@@ -1,0 +1,5 @@
+metric,value,run_id,strategy_id,variant_id,horizon
+max_drawdown,0.5165387932991607,20260422-1820,quant_trading_bot,,SHORT
+operations,1240,20260422-1820,quant_trading_bot,,SHORT
+ret_daily_mean,-0.0019189073286687804,20260422-1820,quant_trading_bot,,SHORT
+ret_total,-0.3956050370530252,20260422-1820,quant_trading_bot,,SHORT

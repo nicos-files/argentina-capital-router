@@ -1,0 +1,40 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "decision_intel.normalized_metrics.schema.json",
+  "title": "Normalized Metrics",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "reader_min_version",
+    "run_id",
+    "strategy_id",
+    "normalization",
+    "metrics_by_horizon",
+    "normalized_metrics"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "const": "1.0.0" },
+    "reader_min_version": { "type": "string", "const": "1.0.0" },
+    "run_id": { "type": "string" },
+    "strategy_id": { "type": "string" },
+    "variant_id": { "type": ["string", "null"] },
+    "normalization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "params"],
+      "properties": {
+        "method": { "type": "string" },
+        "params": { "type": "object", "additionalProperties": true }
+      }
+    },
+    "metrics_by_horizon": {
+      "type": "object",
+      "additionalProperties": { "type": "object", "additionalProperties": { "type": "number" } }
+    },
+    "normalized_metrics": {
+      "type": "object",
+      "additionalProperties": { "type": "number" }
+    }
+  }
+}

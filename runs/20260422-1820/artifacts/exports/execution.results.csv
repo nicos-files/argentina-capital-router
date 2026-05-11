@@ -1,0 +1,2 @@
+order_id,broker,status,filled_qty,avg_fill_price,fees_actual,sent_at,filled_at,error,paper_mode
+0943289f72d4e528f1b9d7fc479196b80831f85aa2ba7c40452125e62da1ce2c,generic_us,FILLED,0.4582208811487106,186.23,2.0,2026-04-22T20:03:55.146045+00:00,2026-04-22T20:03:55.146045+00:00,,True

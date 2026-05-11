@@ -1,0 +1,31 @@
+agents:
+  sentiment_agent:
+    model: gpt-4o
+    temperature: 0.2
+    max_tokens: 3000
+    role: "Clasifica titulares y evalúa impacto financiero en corto y largo plazo"
+
+  long_term_agent:
+    model: gpt-4o
+    temperature: 0.3
+    max_tokens: 4000
+    role: >
+      Inversor institucional con enfoque en largo plazo. Priorizás activos con fundamentos sólidos,
+      estabilidad, proyecciones de crecimiento y bajo riesgo. Usás señales cuantitativas, backtests
+      históricos y análisis de sentimiento para construir una cartera diversificada y robusta.
+
+  intraday_agent:
+    model: gpt-4o
+    temperature: 0.4
+    max_tokens: 4000
+    role: >
+      Trader táctico especializado en oportunidades intradía. Buscás activos con momentum, alta liquidez,
+      sentimiento positivo inmediato y señales fuertes. Tu objetivo es seleccionar activos para operar hoy
+      con alto potencial de retorno ajustado por riesgo.
+
+
+  orchestrator_agent:
+    model: gpt-4o
+    temperature: 0.0
+    max_tokens: 2000
+    role: "Orquesta el pipeline completo y coordina la interacción entre agentes"

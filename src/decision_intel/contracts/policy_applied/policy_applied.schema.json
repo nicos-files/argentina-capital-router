@@ -1,0 +1,82 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "decision_intel.policy_applied.schema.json",
+  "title": "Policy Applied Evaluation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "reader_min_version",
+    "run_id",
+    "policy_id",
+    "baseline",
+    "candidate",
+    "policy_applied_metrics"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "const": "1.0.0" },
+    "reader_min_version": { "type": "string", "const": "1.0.0" },
+    "run_id": { "type": "string" },
+    "policy_id": { "type": "string" },
+    "baseline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["strategy_id", "variant_id"],
+      "properties": {
+        "strategy_id": { "type": "string" },
+        "variant_id": { "type": ["string", "null"] }
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["strategy_id", "variant_id"],
+      "properties": {
+        "strategy_id": { "type": "string" },
+        "variant_id": { "type": ["string", "null"] }
+      }
+    },
+    "policy_applied_metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "patternProperties": {
+        "^[A-Za-z0-9_.-]+$": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "baseline",
+            "candidate",
+            "delta",
+            "direction",
+            "weight",
+            "thresholds",
+            "thresholds_met",
+            "oriented_delta",
+            "weighted_delta"
+          ],
+          "properties": {
+            "baseline": { "type": ["number", "null"] },
+            "candidate": { "type": ["number", "null"] },
+            "delta": { "type": ["number", "null"] },
+            "direction": {
+              "type": "string",
+              "enum": ["higher_is_better", "lower_is_better"]
+            },
+            "weight": { "type": "number" },
+            "thresholds": {
+              "type": ["object", "null"],
+              "additionalProperties": false,
+              "properties": {
+                "min": { "type": "number" },
+                "max": { "type": "number" }
+              }
+            },
+            "thresholds_met": { "type": ["boolean", "null"] },
+            "oriented_delta": { "type": ["number", "null"] },
+            "weighted_delta": { "type": ["number", "null"] }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "decision_intel.decision_policy.schema.json",
+  "title": "Decision Policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "reader_min_version",
+    "policy_id",
+    "policy"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "const": "1.0.0" },
+    "reader_min_version": { "type": "string", "const": "1.0.0" },
+    "policy_id": { "type": "string" },
+    "description": { "type": "string" },
+    "metadata": { "type": "object", "additionalProperties": true },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["metrics"],
+      "properties": {
+        "metrics": {
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[A-Za-z0-9_.-]+$": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["weight", "direction"],
+              "properties": {
+                "weight": { "type": "number" },
+                "direction": {
+                  "type": "string",
+                  "enum": ["higher_is_better", "lower_is_better"]
+                },
+                "thresholds": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "minProperties": 1,
+                  "anyOf": [
+                    { "required": ["min"] },
+                    { "required": ["max"] }
+                  ],
+                  "properties": {
+                    "min": { "type": "number" },
+                    "max": { "type": "number" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

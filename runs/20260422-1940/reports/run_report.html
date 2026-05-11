@@ -1,0 +1,91 @@
+<html><head><meta charset='utf-8'><title>Run Report</title></head><body>
+<h1>Run Report</h1>
+<h2>Metadata</h2>
+<ul>
+<li>completed_at: 2026-04-23T20:49:30.088458+00:00</li>
+<li>config_snapshot_path: /home/naguilar/projects/quant-trading-bot/src/backtest/config_backtest.json</li>
+<li>created_at: 2026-04-23T20:49:30.036500+00:00</li>
+<li>run_id: 20260422-1940</li>
+<li>started_at: 2026-04-23T20:49:30.036555+00:00</li>
+<li>status: SUCCESS</li>
+</ul>
+<h2>decision.outputs</h2>
+<p>source: runs/20260422-1940/artifacts/decision.outputs.v1.0.0.json</p>
+<p>strategy_id: quant_trading_bot</p>
+<p>horizon: SHORT</p>
+<pre>
+[
+  {
+    &quot;asset_id&quot;: &quot;JPM&quot;,
+    &quot;outputs&quot;: {
+      &quot;asof_date&quot;: &quot;2026-04-21&quot;,
+      &quot;decision_type&quot;: &quot;intraday&quot;,
+      &quot;empirical_hit_rate&quot;: 1.0,
+      &quot;empirical_mean_return&quot;: 0.008709,
+      &quot;empirical_observations&quot;: 169,
+      &quot;expected_return_gross_pct&quot;: 0.00886,
+      &quot;justificacion&quot;: &quot;model_score=0.986599 day=2026-04-21 | empirical_mean=0.008709 | empirical_hit=1.000000 | empirical_n=169 | oos_trade_mean=0.007887 | oos_trade_hit=1.000000 | oos_trade_n=76&quot;,
+      &quot;model_score&quot;: 0.986599,
+      &quot;peso_pct&quot;: 40.38898,
+      &quot;selection_score&quot;: 0.01311215
+    },
+    &quot;signal&quot;: 1.0
+  },
+  {
+    &quot;asset_id&quot;: &quot;V&quot;,
+    &quot;outputs&quot;: {
+      &quot;asof_date&quot;: &quot;2026-04-21&quot;,
+      &quot;decision_type&quot;: &quot;intraday&quot;,
+      &quot;empirical_hit_rate&quot;: 0.993243,
+      &quot;empirical_mean_return&quot;: 0.006306,
+      &quot;empirical_observations&quot;: 148,
+      &quot;expected_return_gross_pct&quot;: 0.006762,
+      &quot;justificacion&quot;: &quot;model_score=0.995793 day=2026-04-21 | empirical_mean=0.006306 | empirical_hit=0.993243 | empirical_n=148 | oos_trade_mean=0.004581 | oos_trade_hit=1.000000 | oos_trade_n=75&quot;,
+      &quot;model_score&quot;: 0.995793,
+      &quot;peso_pct&quot;: 31.113012,
+      &quot;selection_score&quot;: 0.01010074
+    },
+    &quot;signal&quot;: 1.0
+  },
+  {
+    &quot;asset_id&quot;: &quot;MSFT&quot;,
+    &quot;outputs&quot;: {
+      &quot;asof_date&quot;: &quot;2026-04-21&quot;,
+      &quot;decision_type&quot;: &quot;intraday&quot;,
+      &quot;empirical_hit_rate&quot;: 1.0,
+      &quot;empirical_mean_return&quot;: 0.005673,
+      &quot;empirical_observations&quot;: 135,
+      &quot;expected_return_gross_pct&quot;: 0.006249,
+      &quot;justificacion&quot;: &quot;model_score=0.986990 day=2026-04-21 | empirical_mean=0.005673 | empirical_hit=1.000000 | empirical_n=135 | oos_trade_mean=0.004468 | oos_trade_hit=1.000000 | oos_trade_n=76&quot;,
+      &quot;model_score&quot;: 0.98699,
+      &quot;peso_pct&quot;: 28.498008,
+      &quot;selection_score&quot;: 0.00925179
+    },
+    &quot;signal&quot;: 1.0
+  }
+]
+</pre>
+<h2>evaluation.metrics</h2>
+<p>source: runs/20260422-1940/artifacts/evaluation.metrics.v1.0.0.json</p>
+<p>strategy_id: quant_trading_bot</p>
+<p>horizon: SHORT</p>
+<table><thead><tr><th>metric</th><th>value</th></tr></thead><tbody>
+<tr><td>evaluated_rows</td><td>1339</td></tr>
+<tr><td>evaluation_mode</td><td>oos_holdout</td></tr>
+<tr><td>max_drawdown</td><td>0.003349091635602611</td></tr>
+<tr><td>operations</td><td>267</td></tr>
+<tr><td>purge_days</td><td>1</td></tr>
+<tr><td>purge_end_date</td><td>2026-02-04</td></tr>
+<tr><td>purge_start_date</td><td>2026-02-04</td></tr>
+<tr><td>ret_daily_mean</td><td>0.0033640293535599115</td></tr>
+<tr><td>ret_total</td><td>0.29065574425694396</td></tr>
+<tr><td>selected_features_count</td><td>31</td></tr>
+<tr><td>target_definition</td><td>signal_at_close_t__enter_open_t_plus_1__exit_close_t_plus_1</td></tr>
+<tr><td>test_days</td><td>76</td></tr>
+<tr><td>test_end_date</td><td>2026-04-21</td></tr>
+<tr><td>test_start_date</td><td>2026-02-05</td></tr>
+<tr><td>train_days</td><td>176</td></tr>
+<tr><td>train_end_date</td><td>2026-02-03</td></tr>
+<tr><td>train_start_date</td><td>2025-08-12</td></tr>
+</tbody></table>
+</body></html>

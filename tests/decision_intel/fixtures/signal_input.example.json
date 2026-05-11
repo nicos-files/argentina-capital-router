@@ -1,0 +1,10 @@
+{
+  "schema_version": "1.0.0",
+  "reader_min_version": "1.0.0",
+  "horizon": "SHORT",
+  "signals": [
+    { "asset_id": "AAPL", "signal": 0.8, "score": 0.9 },
+    { "asset_id": "MSFT", "signal": -0.2 }
+  ],
+  "metadata": { "source": "model_v1" }
+}

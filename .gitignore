@@ -1,0 +1,79 @@
+# Python
+__pycache__/
+*.pyc
+
+# Entornos
+.venv/
+.env
+
+# Datos pesados
+/data/*.parquet
+/data/*.csv
+
+# Configs sensibles
+/configs/*.json
+/configs/*.yaml
+
+# Models
+/models
+
+/debugs_agent.py
+
+/data/
+
+.pytest_cache
+
+requirements-dev.txt
+
+venv
+/driver.env.crypto_paper
+.env.crypto_paper
+.env.binance_testnet
+
+# Runtime/generated artifacts
+artifacts/crypto_paper/
+artifacts/long_term/
+artifacts/capital_routing/
+artifacts/manual_execution/
+artifacts/reports/
+
+# Local logs and caches
+*.log
+.env
+.env.*
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Runtime/generated artifacts
+artifacts/crypto_paper/
+artifacts/long_term/
+artifacts/capital_routing/
+artifacts/manual_execution/
+artifacts/reports/
+
+# Local logs and caches
+*.log
+.env
+.env.*
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Runtime/generated artifacts
+artifacts/crypto_paper/
+artifacts/long_term/
+artifacts/capital_routing/
+artifacts/manual_execution/
+artifacts/reports/
+
+# Local logs and caches
+*.log
+.env
+.env.*
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

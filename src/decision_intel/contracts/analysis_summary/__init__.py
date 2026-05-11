@@ -1,0 +1,1 @@
+"""Analysis summary contract artifacts."""

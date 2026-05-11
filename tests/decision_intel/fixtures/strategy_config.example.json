@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0.0",
+  "strategy_id": "strategy_alpha",
+  "variant_id": "v1",
+  "horizon": "SHORT",
+  "horizon_params": { "days": 5 },
+  "assumptions": { "max_drawdown": 0.1 },
+  "rules": {
+    "sizing_rule": "size.fixed",
+    "constraints": ["risk.max_positions"],
+    "filters": ["eligibility.liquid"]
+  },
+  "metadata": { "owner": "research" }
+}

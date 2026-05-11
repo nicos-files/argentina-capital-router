@@ -1,0 +1,88 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "decision_intel.policy_applied_summary.schema.json",
+  "title": "Policy Applied Summary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "reader_min_version",
+    "run_id",
+    "policy_id",
+    "baseline",
+    "candidate",
+    "summary"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "const": "1.0.0" },
+    "reader_min_version": { "type": "string", "const": "1.0.0" },
+    "run_id": { "type": "string" },
+    "policy_id": { "type": "string" },
+    "baseline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["strategy_id", "variant_id"],
+      "properties": {
+        "strategy_id": { "type": "string" },
+        "variant_id": { "type": ["string", "null"] }
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["strategy_id", "variant_id"],
+      "properties": {
+        "strategy_id": { "type": "string" },
+        "variant_id": { "type": ["string", "null"] }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "total_policy_metrics",
+        "metrics_with_null_delta",
+        "metrics_with_non_null_delta",
+        "thresholds_defined_count",
+        "thresholds_met_count",
+        "thresholds_failed_count",
+        "thresholds_unknown_count",
+        "oriented_delta_positive_count",
+        "oriented_delta_negative_count",
+        "oriented_delta_zero_count",
+        "oriented_delta_null_count",
+        "null_delta_metrics",
+        "thresholds_failed_metrics",
+        "thresholds_unknown_metrics"
+      ],
+      "properties": {
+        "total_policy_metrics": { "type": "integer", "minimum": 0 },
+        "metrics_with_null_delta": { "type": "integer", "minimum": 0 },
+        "metrics_with_non_null_delta": { "type": "integer", "minimum": 0 },
+        "thresholds_defined_count": { "type": "integer", "minimum": 0 },
+        "thresholds_met_count": { "type": "integer", "minimum": 0 },
+        "thresholds_failed_count": { "type": "integer", "minimum": 0 },
+        "thresholds_unknown_count": { "type": "integer", "minimum": 0 },
+        "oriented_delta_positive_count": { "type": "integer", "minimum": 0 },
+        "oriented_delta_negative_count": { "type": "integer", "minimum": 0 },
+        "oriented_delta_zero_count": { "type": "integer", "minimum": 0 },
+        "oriented_delta_null_count": { "type": "integer", "minimum": 0 },
+        "null_delta_metrics": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" }
+        },
+        "thresholds_failed_metrics": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" }
+        },
+        "thresholds_unknown_metrics": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" }
+        }
+      }
+    }
+  }
+}

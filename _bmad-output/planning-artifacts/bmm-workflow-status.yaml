@@ -1,0 +1,57 @@
+# Workflow Status Template
+
+# This tracks progress through BMM methodology Analysis, Planning, and Solutioning phases.
+# Implementation phase is tracked separately in sprint-status.yaml
+
+# STATUS DEFINITIONS:
+# ==================
+# Initial Status (before completion):
+#   - required: Must be completed to progress
+#   - optional: Can be completed but not required
+#   - recommended: Strongly suggested but not required
+#   - conditional: Required only if certain conditions met (e.g., if_has_ui)
+#
+# Completion Status:
+#   - {file-path}: File created/found (e.g., "docs/product-brief.md")
+#   - skipped: Optional/conditional workflow that was skipped
+
+generated: "2026-01-08T21:06:32-03:00"
+project: "quant-trading-bot"
+project_type: "BMad Method"
+selected_track: "method"
+field_type: "brownfield"
+workflow_path: "_bmad/bmm/workflows/workflow-status/paths/method-brownfield.yaml"
+workflow_status:
+  document-project: docs/index.md
+  brainstorm-project: skipped
+  research: optional
+  product-brief: skipped
+  prd: _bmad-output/planning-artifacts/prd.md
+  create-ux-design: conditional
+  create-architecture: required
+  create-epics-and-stories: required
+  test-design: optional
+  implementation-readiness: required
+  sprint-planning: required
+user_description: |
+  I'm working on an existing quantitative trading codebase that currently implements a modular data ingestion and processing pipeline (prices, fundamentals, sentiment), but does not yet fulfill its real objective.
+
+  The goal is to redesign and evolve this system into a quantitative investment recommender that produces actionable, explainable recommendations for a real investment portfolio across two horizons from the MVP:
+
+  - Long-term investing (weeks to months), based on fundamentals, factors, and slower signals.
+  - Intraday trading (intraday swing, hours to same-day), based on prices, volatility, momentum/mean-reversion, liquidity filters, and risk controls.
+
+  The system should output signals, confidence, suggested position sizing, risk metrics, and human-readable explanations, along with robust backtesting and reporting.
+
+  Scalping and fully automated execution are explicitly out of scope for the first phase, but the architecture should allow adding:
+  - higher-frequency strategies later
+  - paid/premium data providers (news, intraday data) when available
+
+  The immediate focus is on correct problem definition, product requirements, and architecture, reusing valuable parts of the existing pipeline where appropriate, and defining a clear, incremental path from recommender -> paper trading -> automated trading bot.
+
+key_risks:`n  - Explainability depth: require factor/feature contribution and confidence calibration.`n  - Dual-horizon divergence: enforce shared data contracts, common risk model, unified reporting.`n  - Backtesting integrity: guardrails for survivorship/look-ahead bias and data gaps.`nbrainstorm_requested: false
+research_requested: true
+product_brief_requested: false
+
+
+

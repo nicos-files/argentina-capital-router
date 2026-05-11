@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "decision_intel.strategy_config.schema.json",
+  "title": "Strategy Config",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "strategy_id",
+    "horizon",
+    "assumptions",
+    "rules"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "strategy_id": {
+      "type": "string"
+    },
+    "variant_id": {
+      "type": "string"
+    },
+    "horizon": {
+      "type": "string",
+      "enum": ["SHORT", "MEDIUM", "LONG"]
+    },
+    "horizon_params": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "assumptions": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "rules": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sizing_rule", "constraints", "filters"],
+      "properties": {
+        "sizing_rule": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+$"
+        },
+        "constraints": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" }
+        },
+        "filters": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" }
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}

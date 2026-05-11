@@ -1,0 +1,55 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "decision_intel.decision_output.schema.json",
+  "title": "Decision Output Artifact",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "reader_min_version",
+    "run_id",
+    "strategy_id",
+    "horizon",
+    "rule_refs",
+    "config_snapshot_path",
+    "decisions"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "reader_min_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "run_id": { "type": "string" },
+    "strategy_id": { "type": "string" },
+    "variant_id": { "type": ["string", "null"] },
+    "horizon": { "type": "string", "enum": ["SHORT", "MEDIUM", "LONG"] },
+    "rule_refs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sizing_rule", "constraints", "filters"],
+      "properties": {
+        "sizing_rule": { "type": "string" },
+        "constraints": { "type": "array", "items": { "type": "string" } },
+        "filters": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "config_snapshot_path": { "type": "string" },
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["asset_id", "signal", "outputs"],
+        "properties": {
+          "asset_id": { "type": "string" },
+          "signal": { "type": "number" },
+          "outputs": { "type": "object", "additionalProperties": true }
+        }
+      }
+    }
+  }
+}

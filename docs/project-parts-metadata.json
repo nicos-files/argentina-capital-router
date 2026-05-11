@@ -1,0 +1,15 @@
+{
+    "parts":  [
+                  {
+                      "key_indicators":  [
+                                             "requirements.txt",
+                                             "src/pipeline/"
+                                         ],
+                      "project_type_id":  "data",
+                      "display_name":  "main",
+                      "part_id":  "main",
+                      "root_path":  "\\\\\\\\wsl.localhost\\\\Ubuntu\\\\home\\\\naguilar\\\\projects\\\\quant-trading-bot"
+                  }
+              ],
+    "repository_type":  "monolith"
+}

@@ -1,0 +1,44 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "decision_intel.recommendation_output.schema.json",
+  "title": "Recommendation Output Artifact",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "reader_min_version",
+    "run_id",
+    "recommendations",
+    "cash_summary",
+    "cash_policy"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "const": "1.0.0" },
+    "reader_min_version": { "type": "string", "const": "1.0.0" },
+    "run_id": { "type": "string" },
+    "horizon": { "type": ["string", "null"] },
+    "asof_date": { "type": ["string", "null"] },
+    "policy_id": { "type": "string" },
+    "policy_version": { "type": "string" },
+    "constraints": { "type": "array", "items": { "type": "string" } },
+    "sizing_rule": { "type": "string" },
+    "cash_policy": { "type": "string" },
+    "execution_date": { "type": ["string", "null"] },
+    "execution_hour": { "type": ["string", "null"] },
+    "cash_summary": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "recommendations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["ticker", "asset_id", "horizon", "action", "order_status", "policy_id", "policy_version"]
+      }
+    }
+  }
+}

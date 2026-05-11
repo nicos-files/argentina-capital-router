@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "market": "crypto",
+  "default_quote_currency": "USDT",
+  "strategy": {
+    "name": "intraday_crypto_baseline",
+    "enabled": false,
+    "timeframe": "5m",
+    "lookback_limit": 120,
+    "fast_ma_window": 9,
+    "slow_ma_window": 21,
+    "min_abs_signal_strength": 0.001,
+    "max_volatility_pct": 0.08,
+    "risk_reward_ratio": 1.5,
+    "stop_loss_pct": 0.006,
+    "take_profit_pct": 0.009,
+    "max_paper_notional": 25.0,
+    "allow_short": false
+  },
+  "symbols": [
+    {
+      "symbol": "BTCUSDT",
+      "base": "BTC",
+      "quote": "USDT",
+      "exchange": "binance_spot",
+      "asset_class": "crypto",
+      "enabled": true,
+      "min_timeframe": "1m",
+      "strategy_enabled": false,
+      "paper_enabled": true,
+      "live_enabled": false
+    },
+    {
+      "symbol": "ETHUSDT",
+      "base": "ETH",
+      "quote": "USDT",
+      "exchange": "binance_spot",
+      "asset_class": "crypto",
+      "enabled": true,
+      "min_timeframe": "1m",
+      "strategy_enabled": false,
+      "paper_enabled": true,
+      "live_enabled": false
+    }
+  ]
+}

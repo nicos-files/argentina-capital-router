@@ -1,0 +1,10 @@
+{
+  "last": {
+    "alphaV_fetcher_raw_mtime": null,
+    "fetch_prices_raw_mtime": null,
+    "ingest_fundamentals_raw_mtime": null,
+    "ingest_sentiment_raw_mtime": null,
+    "process_prices_raw_mtime": 1758025230.2482646,
+    "process_fundamentals_raw_mtime": 1758025253.5217447
+  }
+}
