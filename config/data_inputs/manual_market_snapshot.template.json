@@ -1,0 +1,131 @@
+{
+  "schema_version": "1.0",
+  "snapshot_id": "manual-market-TEMPLATE",
+  "as_of": "1970-01-01",
+  "source": "manual",
+  "manual_review_only": true,
+  "live_trading_enabled": false,
+  "data_frequency": "1d",
+  "quotes": [
+    {
+      "symbol": "SPY",
+      "asset_class": "cedear",
+      "price": 1.0,
+      "currency": "ARS",
+      "as_of": "1970-01-01",
+      "provider": "manual",
+      "delayed": true,
+      "notes": "TODO: replace with the last known CEDEAR price in ARS (placeholder)."
+    },
+    {
+      "symbol": "AAPL",
+      "asset_class": "cedear",
+      "price": 1.0,
+      "currency": "ARS",
+      "as_of": "1970-01-01",
+      "provider": "manual",
+      "delayed": true,
+      "notes": "TODO: replace with the last known CEDEAR price in ARS (placeholder)."
+    },
+    {
+      "symbol": "MELI",
+      "asset_class": "cedear",
+      "price": 1.0,
+      "currency": "ARS",
+      "as_of": "1970-01-01",
+      "provider": "manual",
+      "delayed": true,
+      "notes": "TODO: replace with the last known CEDEAR price in ARS (placeholder)."
+    },
+    {
+      "symbol": "KO",
+      "asset_class": "cedear",
+      "price": 1.0,
+      "currency": "ARS",
+      "as_of": "1970-01-01",
+      "provider": "manual",
+      "delayed": true,
+      "notes": "TODO: replace with the last known CEDEAR price in ARS (placeholder)."
+    },
+    {
+      "symbol": "GGAL",
+      "asset_class": "argentina_equity",
+      "price": 1.0,
+      "currency": "ARS",
+      "as_of": "1970-01-01",
+      "provider": "manual",
+      "delayed": true,
+      "notes": "TODO: replace with the last known local equity price in ARS (placeholder)."
+    },
+    {
+      "symbol": "YPFD",
+      "asset_class": "argentina_equity",
+      "price": 1.0,
+      "currency": "ARS",
+      "as_of": "1970-01-01",
+      "provider": "manual",
+      "delayed": true,
+      "notes": "TODO: replace with the last known local equity price in ARS (placeholder)."
+    },
+    {
+      "symbol": "PAMP",
+      "asset_class": "argentina_equity",
+      "price": 1.0,
+      "currency": "ARS",
+      "as_of": "1970-01-01",
+      "provider": "manual",
+      "delayed": true,
+      "notes": "TODO: replace with the last known local equity price in ARS (placeholder)."
+    }
+  ],
+  "fx_rates": {
+    "USDARS_MEP": {
+      "rate": 1.0,
+      "as_of": "1970-01-01",
+      "provider": "manual",
+      "delayed": true,
+      "notes": "TODO: replace with the latest USD/ARS MEP rate (placeholder)."
+    },
+    "USDARS_CCL": {
+      "rate": 1.0,
+      "as_of": "1970-01-01",
+      "provider": "manual",
+      "delayed": true,
+      "notes": "TODO: replace with the latest USD/ARS CCL rate (placeholder)."
+    },
+    "USDARS_OFFICIAL": {
+      "rate": 1.0,
+      "as_of": "1970-01-01",
+      "provider": "manual",
+      "delayed": true,
+      "notes": "TODO: replace with the latest USD/ARS official rate (placeholder)."
+    }
+  },
+  "rates": {
+    "money_market_monthly_pct": {
+      "value": 0.0,
+      "as_of": "1970-01-01",
+      "provider": "manual",
+      "notes": "TODO: replace with the expected monthly money-market return in % (placeholder)."
+    },
+    "caucion_monthly_pct": {
+      "value": 0.0,
+      "as_of": "1970-01-01",
+      "provider": "manual",
+      "notes": "TODO: replace with the expected monthly-equivalent caucion rate in % (placeholder)."
+    },
+    "expected_fx_devaluation_monthly_pct": {
+      "value": 0.0,
+      "as_of": "1970-01-01",
+      "provider": "manual",
+      "notes": "TODO: replace with your expected monthly USDARS devaluation in % (placeholder)."
+    }
+  },
+  "quality": {
+    "warnings": [
+      "TEMPLATE FILE - placeholder values only. Replace every TODO before using this snapshot.",
+      "Manual snapshot is delayed and is not suitable for intraday or live trading."
+    ],
+    "completeness": "minimal"
+  }
+}

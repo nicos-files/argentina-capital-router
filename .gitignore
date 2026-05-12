@@ -31,6 +31,7 @@ venv
 .env.binance_testnet
 
 # Runtime/generated artifacts
+artifacts/
 artifacts/crypto_paper/
 artifacts/long_term/
 artifacts/capital_routing/
@@ -46,34 +47,12 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 
-# Runtime/generated artifacts
-artifacts/crypto_paper/
-artifacts/long_term/
-artifacts/capital_routing/
-artifacts/manual_execution/
-artifacts/reports/
-
-# Local logs and caches
-*.log
-.env
-.env.*
-__pycache__/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-
-# Runtime/generated artifacts
-artifacts/crypto_paper/
-artifacts/long_term/
-artifacts/capital_routing/
-artifacts/manual_execution/
-artifacts/reports/
-
-# Local logs and caches
-*.log
-.env
-.env.*
-__pycache__/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
+# Private/local manual snapshots and generated outputs.
+# Templates and examples under config/ remain committed; only real, private
+# user-filled snapshots under snapshots/ are ignored.
+snapshots/market/*.json
+snapshots/portfolio/*.json
+snapshots/outputs/*
+!snapshots/market/.gitkeep
+!snapshots/portfolio/.gitkeep
+!snapshots/outputs/.gitkeep
