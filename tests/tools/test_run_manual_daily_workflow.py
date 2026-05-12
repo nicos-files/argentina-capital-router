@@ -1,0 +1,305 @@
+import io
+import json
+import tempfile
+import unittest
+from contextlib import redirect_stderr, redirect_stdout
+from pathlib import Path
+
+from src.tools import run_manual_daily_workflow as cli
+
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+EXAMPLE_MARKET = (
+    REPO_ROOT / "config" / "data_inputs" / "manual_market_snapshot.example.json"
+)
+EXAMPLE_PORTFOLIO = (
+    REPO_ROOT / "config" / "portfolio" / "manual_portfolio_snapshot.example.json"
+)
+EXAMPLE_EXECUTIONS = (
+    REPO_ROOT
+    / "config"
+    / "manual_execution"
+    / "manual_executions.example.json"
+)
+TEMPLATE_MARKET = (
+    REPO_ROOT
+    / "config"
+    / "data_inputs"
+    / "manual_market_snapshot.template.json"
+)
+TEMPLATE_PORTFOLIO = (
+    REPO_ROOT
+    / "config"
+    / "portfolio"
+    / "manual_portfolio_snapshot.template.json"
+)
+
+
+def _write_complete_snapshots(tmp: Path) -> tuple[Path, Path]:
+    """Return (market, portfolio) snapshots tweaked to pass --strict-inputs."""
+    market_raw = json.loads(EXAMPLE_MARKET.read_text(encoding="utf-8"))
+    market_raw["quality"] = {"warnings": [], "completeness": "complete"}
+    market_path = tmp / "market_complete.json"
+    market_path.write_text(json.dumps(market_raw), encoding="utf-8")
+
+    portfolio_raw = json.loads(EXAMPLE_PORTFOLIO.read_text(encoding="utf-8"))
+    # Example market only prices SPY + GGAL; drop AAPL so strict mode passes.
+    portfolio_raw["positions"] = [
+        p for p in portfolio_raw["positions"] if p["symbol"] in {"SPY", "GGAL"}
+    ]
+    portfolio_raw["quality"] = {"warnings": [], "completeness": "complete"}
+    portfolio_path = tmp / "portfolio_complete.json"
+    portfolio_path.write_text(json.dumps(portfolio_raw), encoding="utf-8")
+
+    return market_path, portfolio_path
+
+
+class RunManualDailyWorkflowTests(unittest.TestCase):
+    def _run(self, args: list[str]) -> tuple[int, str, str]:
+        out_buf = io.StringIO()
+        err_buf = io.StringIO()
+        with redirect_stdout(out_buf), redirect_stderr(err_buf):
+            rc = cli.main(args)
+        return rc, out_buf.getvalue(), err_buf.getvalue()
+
+    def test_runs_with_market_and_portfolio_only(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp = Path(tmp_dir)
+            rc, out, _ = self._run(
+                [
+                    "--date",
+                    "2026-05-12",
+                    "--market-snapshot",
+                    str(EXAMPLE_MARKET),
+                    "--portfolio-snapshot",
+                    str(EXAMPLE_PORTFOLIO),
+                    "--artifacts-dir",
+                    str(tmp),
+                ]
+            )
+            self.assertEqual(rc, 0, msg=out)
+            self.assertIn("Manual review only", out)
+            self.assertIn("daily_plan", out)
+
+            self.assertTrue(
+                (tmp / "capital_routing" / "daily_capital_plan.json").exists()
+            )
+            self.assertTrue(
+                (
+                    tmp / "long_term" / "monthly_contribution_plan.json"
+                ).exists()
+            )
+            self.assertTrue((tmp / "reports" / "daily_report.md").exists())
+
+            self.assertIn(
+                "execution_comparison: skipped (no --executions provided)",
+                out,
+            )
+            self.assertFalse(
+                (tmp / "manual_execution").exists(),
+                msg="manual_execution dir should not exist without --executions",
+            )
+
+    def test_runs_with_executions_and_writes_comparison(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp = Path(tmp_dir)
+            rc, out, _ = self._run(
+                [
+                    "--date",
+                    "2026-05-12",
+                    "--market-snapshot",
+                    str(EXAMPLE_MARKET),
+                    "--portfolio-snapshot",
+                    str(EXAMPLE_PORTFOLIO),
+                    "--executions",
+                    str(EXAMPLE_EXECUTIONS),
+                    "--usdars-rate",
+                    "1200",
+                    "--artifacts-dir",
+                    str(tmp),
+                ]
+            )
+            self.assertEqual(rc, 0, msg=out)
+            comparison_dir = tmp / "manual_execution"
+            self.assertTrue(comparison_dir.exists())
+            self.assertTrue(
+                (comparison_dir / "manual_execution_comparison.json").exists()
+            )
+            self.assertTrue(
+                (comparison_dir / "manual_execution_report.md").exists()
+            )
+            self.assertIn("follow_rate_pct", out)
+
+    def test_json_output_is_parseable(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp = Path(tmp_dir)
+            rc, out, _ = self._run(
+                [
+                    "--date",
+                    "2026-05-12",
+                    "--market-snapshot",
+                    str(EXAMPLE_MARKET),
+                    "--portfolio-snapshot",
+                    str(EXAMPLE_PORTFOLIO),
+                    "--executions",
+                    str(EXAMPLE_EXECUTIONS),
+                    "--usdars-rate",
+                    "1200",
+                    "--artifacts-dir",
+                    str(tmp),
+                    "--json",
+                ]
+            )
+            self.assertEqual(rc, 0, msg=out)
+            payload = json.loads(out)
+            self.assertIs(payload["manual_review_only"], True)
+            self.assertIs(payload["live_trading_enabled"], False)
+            self.assertEqual(payload["date"], "2026-05-12")
+            self.assertEqual(payload["status"], "ok")
+            self.assertIn("daily_plan_path", payload)
+            self.assertIn("daily_report_path", payload)
+            self.assertIn("execution_comparison_path", payload)
+            self.assertIn("follow_rate_pct", payload)
+            self.assertEqual(
+                payload["market_snapshot"], str(EXAMPLE_MARKET)
+            )
+            self.assertEqual(
+                payload["portfolio_snapshot"], str(EXAMPLE_PORTFOLIO)
+            )
+
+    def test_missing_required_arg_exits_usage_error(self) -> None:
+        rc, _, err = self._run(
+            ["--portfolio-snapshot", str(EXAMPLE_PORTFOLIO)]
+        )
+        self.assertEqual(rc, 2)
+        self.assertTrue(err)
+
+    def test_strict_inputs_fails_on_placeholder_warnings(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp = Path(tmp_dir)
+            rc, out, _ = self._run(
+                [
+                    "--date",
+                    "2026-05-12",
+                    "--market-snapshot",
+                    str(TEMPLATE_MARKET),
+                    "--portfolio-snapshot",
+                    str(TEMPLATE_PORTFOLIO),
+                    "--artifacts-dir",
+                    str(tmp),
+                    "--strict-inputs",
+                ]
+            )
+            self.assertEqual(rc, 1, msg=out)
+            self.assertIn("strict_failed", out)
+            # No daily plan should be written when strict validation fails.
+            self.assertFalse(
+                (tmp / "capital_routing" / "daily_capital_plan.json").exists()
+            )
+
+    def test_strict_inputs_succeeds_with_complete_snapshots(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp = Path(tmp_dir)
+            market, portfolio = _write_complete_snapshots(tmp)
+            artifacts = tmp / "artifacts"
+            rc, out, _ = self._run(
+                [
+                    "--date",
+                    "2026-05-12",
+                    "--market-snapshot",
+                    str(market),
+                    "--portfolio-snapshot",
+                    str(portfolio),
+                    "--artifacts-dir",
+                    str(artifacts),
+                    "--strict-inputs",
+                ]
+            )
+            self.assertEqual(rc, 0, msg=out)
+
+    def test_no_forbidden_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp = Path(tmp_dir)
+            rc, _, _ = self._run(
+                [
+                    "--date",
+                    "2026-05-12",
+                    "--market-snapshot",
+                    str(EXAMPLE_MARKET),
+                    "--portfolio-snapshot",
+                    str(EXAMPLE_PORTFOLIO),
+                    "--executions",
+                    str(EXAMPLE_EXECUTIONS),
+                    "--usdars-rate",
+                    "1200",
+                    "--artifacts-dir",
+                    str(tmp),
+                ]
+            )
+            self.assertEqual(rc, 0)
+            for forbidden in ("execution.plan", "final_decision.json"):
+                for found in tmp.rglob(forbidden):
+                    self.fail(f"unexpected forbidden artifact: {found}")
+
+    def test_no_crypto_or_broker_or_network_references_in_outputs(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp = Path(tmp_dir)
+            rc, out, _ = self._run(
+                [
+                    "--date",
+                    "2026-05-12",
+                    "--market-snapshot",
+                    str(EXAMPLE_MARKET),
+                    "--portfolio-snapshot",
+                    str(EXAMPLE_PORTFOLIO),
+                    "--artifacts-dir",
+                    str(tmp),
+                ]
+            )
+            self.assertEqual(rc, 0)
+            report = (tmp / "reports" / "daily_report.md").read_text(
+                encoding="utf-8"
+            )
+            for forbidden_word in ("crypto", "binance"):
+                self.assertNotIn(forbidden_word, report.lower())
+                self.assertNotIn(forbidden_word, out.lower())
+
+    def test_invalid_market_snapshot_returns_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp = Path(tmp_dir)
+            bad = tmp / "bad.json"
+            bad.write_text("not-json", encoding="utf-8")
+            rc, _, _ = self._run(
+                [
+                    "--date",
+                    "2026-05-12",
+                    "--market-snapshot",
+                    str(bad),
+                    "--portfolio-snapshot",
+                    str(EXAMPLE_PORTFOLIO),
+                    "--artifacts-dir",
+                    str(tmp / "out"),
+                ]
+            )
+            self.assertEqual(rc, 1)
+            self.assertFalse((tmp / "out").exists())
+
+    def test_default_artifacts_dir_uses_snapshots_outputs_date(self) -> None:
+        # Verify the resolver without writing to the real repo path.
+        from src.tools.run_manual_daily_workflow import _resolve_artifacts_dir
+
+        resolved = _resolve_artifacts_dir(None, "2026-05-12")
+        self.assertEqual(
+            resolved.parts[-2:],
+            ("outputs", "2026-05-12"),
+            msg=f"unexpected resolved path: {resolved}",
+        )
+        self.assertEqual(
+            resolved.parts[-3], "snapshots", msg=f"resolved={resolved}"
+        )
+
+
+if __name__ == "__main__":  # pragma: no cover
+    unittest.main()

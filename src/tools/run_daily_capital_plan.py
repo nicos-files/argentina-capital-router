@@ -426,15 +426,29 @@ def _print_summary(
         print(f"    - {name}: {path}")
 
 
+def run_daily_capital_plan(
+    args: argparse.Namespace,
+) -> tuple[CapitalPlanRecommendation, dict[str, Path]]:
+    """Build the daily plan and write its artifacts.
+
+    Public helper for callers (e.g. the manual daily workflow orchestrator)
+    that already have a parsed ``argparse.Namespace`` and want both the
+    recommendation object and the on-disk artifact paths. Raises ``ValueError``
+    on invalid CLI input (same surface area as the existing CLI ``main``).
+    """
+    recommendation = build_plan(args)
+    paths = _write_artifacts(args.artifacts_dir, recommendation)
+    return recommendation, paths
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = _build_arg_parser()
     args = parser.parse_args(argv)
     try:
-        recommendation = build_plan(args)
+        recommendation, paths = run_daily_capital_plan(args)
     except ValueError as exc:
         print(f"error: {exc}")
         return 2
-    paths = _write_artifacts(args.artifacts_dir, recommendation)
     _print_summary(recommendation, paths)
     return 0
 
