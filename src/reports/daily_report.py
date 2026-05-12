@@ -59,6 +59,82 @@ def build_daily_report_markdown(plan: DailyCapitalPlan) -> str:
         lines.append("_No warnings._")
     lines.append("")
 
+    if plan.market_snapshot_id:
+        completeness = ""
+        snapshot_as_of = ""
+        meta = dict(plan.metadata or {})
+        snapshot_meta = meta.get("market_snapshot") or {}
+        if isinstance(snapshot_meta, dict):
+            completeness = str(snapshot_meta.get("completeness", "") or "")
+            snapshot_as_of = str(snapshot_meta.get("as_of", "") or "")
+
+        lines.append("## Market Snapshot")
+        lines.append("")
+        lines.append(f"- **Snapshot ID:** {plan.market_snapshot_id}")
+        if snapshot_as_of:
+            lines.append(f"- **As of:** {snapshot_as_of}")
+        if completeness:
+            lines.append(f"- **Completeness:** {completeness}")
+        lines.append("")
+
+        if plan.prices_used:
+            lines.append("## Prices Used")
+            lines.append("")
+            lines.append("| Symbol | Asset class | Price | Currency | Provider | As of |")
+            lines.append("| --- | --- | ---: | --- | --- | --- |")
+            for quote in plan.prices_used:
+                lines.append(
+                    "| {symbol} | {asset_class} | {price:.2f} | {currency} | {provider} | {as_of} |".format(
+                        symbol=quote.get("symbol", "?"),
+                        asset_class=quote.get("asset_class", "?"),
+                        price=float(quote.get("price", 0.0)),
+                        currency=quote.get("currency", "?"),
+                        provider=quote.get("provider", "?"),
+                        as_of=quote.get("as_of", "?"),
+                    )
+                )
+            lines.append("")
+
+        if plan.fx_rates_used:
+            lines.append("## FX Rates Used")
+            lines.append("")
+            lines.append("| Pair | Rate | As of | Provider | Delayed |")
+            lines.append("| --- | ---: | --- | --- | --- |")
+            for fx in plan.fx_rates_used:
+                lines.append(
+                    "| {pair} | {rate:.2f} | {as_of} | {provider} | {delayed} |".format(
+                        pair=fx.get("pair", "?"),
+                        rate=float(fx.get("rate", 0.0)),
+                        as_of=fx.get("as_of", "?"),
+                        provider=fx.get("provider", "?"),
+                        delayed=bool(fx.get("delayed", True)),
+                    )
+                )
+            lines.append("")
+
+        if plan.rate_inputs_used:
+            lines.append("## Rate Inputs Used")
+            lines.append("")
+            lines.append("| Key | Value | As of | Provider |")
+            lines.append("| --- | ---: | --- | --- |")
+            for rate in plan.rate_inputs_used:
+                lines.append(
+                    "| {key} | {value:.2f} | {as_of} | {provider} |".format(
+                        key=rate.get("key", "?"),
+                        value=float(rate.get("value", 0.0)),
+                        as_of=rate.get("as_of", "?"),
+                        provider=rate.get("provider", "?"),
+                    )
+                )
+            lines.append("")
+
+        if plan.data_warnings:
+            lines.append("## Data Warnings")
+            lines.append("")
+            for warning in plan.data_warnings:
+                lines.append(f"- {warning}")
+            lines.append("")
+
     return "\n".join(lines).rstrip() + "\n"
 
 

@@ -8,7 +8,7 @@ import argparse
 from dataclasses import asdict
 from datetime import date
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from src.capital_allocation.buckets import build_default_capital_state
 from src.capital_allocation.capital_router import (
@@ -18,7 +18,16 @@ from src.capital_allocation.capital_router import (
 )
 from src.capital_allocation.contribution_policy import load_contribution_policy
 from src.market_data.ar_symbols import get_enabled_long_term_assets
-from src.opportunities.carry_trade import CarryInputs, score_carry_opportunity
+from src.market_data.manual_snapshot import (
+    ManualMarketSnapshot,
+    load_manual_market_snapshot,
+    summarize_snapshot,
+)
+from src.opportunities.carry_trade import (
+    CarryInputs,
+    build_carry_inputs_from_snapshot,
+    score_carry_opportunity,
+)
 from src.portfolio.contribution_allocator import allocate_monthly_contribution
 from src.portfolio.long_term_policy import load_long_term_policy
 from src.recommendations.models import (
@@ -69,6 +78,35 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--carry-fx-risk-score", type=float, default=50.0)
     parser.add_argument("--carry-liquidity-risk-score", type=float, default=50.0)
     parser.add_argument(
+        "--market-snapshot",
+        type=Path,
+        default=None,
+        help=(
+            "Optional path to a manual market snapshot JSON file. "
+            "Read-only, no network."
+        ),
+    )
+    parser.add_argument(
+        "--carry-from-snapshot",
+        action="store_true",
+        help=(
+            "Build carry-trade inputs from the snapshot rates. Requires "
+            "--market-snapshot. Mutually exclusive with --simulate-carry."
+        ),
+    )
+    parser.add_argument(
+        "--carry-rate-key",
+        type=str,
+        default="money_market_monthly_pct",
+        help="Snapshot rate key for expected monthly rate.",
+    )
+    parser.add_argument(
+        "--carry-expected-fx-key",
+        type=str,
+        default="expected_fx_devaluation_monthly_pct",
+        help="Snapshot rate key for expected FX devaluation (monthly pct).",
+    )
+    parser.add_argument(
         "--artifacts-dir",
         type=Path,
         default=_DEFAULT_ARTIFACTS_DIR,
@@ -88,22 +126,66 @@ def _build_carry_opportunity(args: argparse.Namespace) -> TacticalOpportunity:
         liquidity_risk_score=float(args.carry_liquidity_risk_score),
         notes="CLI-simulated carry opportunity.",
     )
+    return _carry_inputs_to_opportunity(inputs)
+
+
+def _carry_inputs_to_opportunity(inputs: CarryInputs) -> TacticalOpportunity:
     carry_score = score_carry_opportunity(inputs)
     return TacticalOpportunity(
         opportunity_id=carry_score.opportunity_id,
         opportunity_type="carry_trade",
         expected_net_return_pct=carry_score.expected_net_return_pct,
         score=carry_score.score,
-        duration_days=int(args.carry_duration_days),
-        fx_risk_score=float(args.carry_fx_risk_score),
-        liquidity_risk_score=float(args.carry_liquidity_risk_score),
+        duration_days=int(inputs.duration_days),
+        fx_risk_score=float(inputs.fx_risk_score),
+        liquidity_risk_score=float(inputs.liquidity_risk_score),
         uses_leverage=False,
         has_clear_exit_date=True,
         notes=f"classification={carry_score.classification}",
     )
 
 
+def _build_carry_opportunity_from_snapshot(
+    snapshot: ManualMarketSnapshot, args: argparse.Namespace
+) -> TacticalOpportunity:
+    inputs = build_carry_inputs_from_snapshot(
+        snapshot,
+        rate_key=str(args.carry_rate_key),
+        expected_fx_key=str(args.carry_expected_fx_key),
+        estimated_cost_pct=float(args.carry_cost_pct),
+        duration_days=int(args.carry_duration_days),
+        fx_risk_score=float(args.carry_fx_risk_score),
+        liquidity_risk_score=float(args.carry_liquidity_risk_score),
+        opportunity_id="snapshot_carry",
+    )
+    return _carry_inputs_to_opportunity(inputs)
+
+
+def _validate_carry_source(args: argparse.Namespace) -> None:
+    if args.simulate_carry and args.carry_from_snapshot:
+        raise ValueError(
+            "Use only one carry source: --simulate-carry or --carry-from-snapshot, not both."
+        )
+    if args.carry_from_snapshot and args.market_snapshot is None:
+        raise ValueError("--carry-from-snapshot requires --market-snapshot PATH.")
+
+
+def _snapshot_artifacts(snapshot: ManualMarketSnapshot) -> dict[str, Any]:
+    prices_used = [dataclass_to_dict(q) for q in snapshot.quotes.values()]
+    fx_rates_used = [dataclass_to_dict(fx) for fx in snapshot.fx_rates.values()]
+    rate_inputs_used = [dataclass_to_dict(r) for r in snapshot.rates.values()]
+    return {
+        "prices_used": prices_used,
+        "fx_rates_used": fx_rates_used,
+        "rate_inputs_used": rate_inputs_used,
+        "data_warnings": list(snapshot.warnings),
+        "summary": summarize_snapshot(snapshot),
+    }
+
+
 def build_plan(args: argparse.Namespace) -> CapitalPlanRecommendation:
+    _validate_carry_source(args)
+
     policy = load_contribution_policy()
     long_term_policy = load_long_term_policy()
 
@@ -118,9 +200,23 @@ def build_plan(args: argparse.Namespace) -> CapitalPlanRecommendation:
         tactical_capital_available_usd=float(args.tactical_capital_usd),
     )
 
+    snapshot: Optional[ManualMarketSnapshot] = None
+    snapshot_extras: dict[str, Any] = {}
+    extra_warnings: list[str] = []
+    if args.market_snapshot is not None:
+        snapshot = load_manual_market_snapshot(args.market_snapshot)
+        snapshot_extras = _snapshot_artifacts(snapshot)
+        if snapshot.completeness == "partial":
+            extra_warnings.append(
+                f"Snapshot completeness is partial (snapshot_id={snapshot.snapshot_id})."
+            )
+
     opportunity: Optional[TacticalOpportunity] = None
     if args.simulate_carry:
         opportunity = _build_carry_opportunity(args)
+    elif args.carry_from_snapshot:
+        assert snapshot is not None  # guaranteed by _validate_carry_source
+        opportunity = _build_carry_opportunity_from_snapshot(snapshot, args)
 
     decision = route_capital(policy, capital_state, opportunity=opportunity)
 
@@ -137,6 +233,24 @@ def build_plan(args: argparse.Namespace) -> CapitalPlanRecommendation:
         base_currency=long_term_policy.base_currency,
         notes="Deterministic allocator, manual review only.",
     )
+
+    metadata: dict[str, Any] = {
+        "policy_id": policy.policy_id,
+        "long_term_policy_id": long_term_policy.policy_id,
+        "tactical_capital_available_usd": float(args.tactical_capital_usd),
+        "universe_size": len(assets),
+        "opportunity_simulated": bool(args.simulate_carry),
+        "opportunity_from_snapshot": bool(args.carry_from_snapshot),
+    }
+    if snapshot is not None:
+        metadata["market_snapshot"] = {
+            "snapshot_id": snapshot.snapshot_id,
+            "as_of": snapshot.as_of,
+            "source": snapshot.source,
+            "completeness": snapshot.completeness,
+            "summary": snapshot_extras.get("summary", {}),
+        }
+
     plan = DailyCapitalPlan(
         as_of=as_of,
         manual_review_only=True,
@@ -144,14 +258,13 @@ def build_plan(args: argparse.Namespace) -> CapitalPlanRecommendation:
         monthly_long_term_contribution_usd=monthly,
         routing_decision=dataclass_to_dict(decision),
         long_term_allocations=long_term_plan.allocations,
-        warnings=tuple(decision.warnings),
-        metadata={
-            "policy_id": policy.policy_id,
-            "long_term_policy_id": long_term_policy.policy_id,
-            "tactical_capital_available_usd": float(args.tactical_capital_usd),
-            "universe_size": len(assets),
-            "opportunity_simulated": bool(args.simulate_carry),
-        },
+        warnings=tuple(list(decision.warnings) + extra_warnings),
+        metadata=metadata,
+        market_snapshot_id=(snapshot.snapshot_id if snapshot is not None else None),
+        prices_used=tuple(snapshot_extras.get("prices_used", [])),
+        fx_rates_used=tuple(snapshot_extras.get("fx_rates_used", [])),
+        rate_inputs_used=tuple(snapshot_extras.get("rate_inputs_used", [])),
+        data_warnings=tuple(snapshot_extras.get("data_warnings", [])),
     )
     return CapitalPlanRecommendation(plan=plan, long_term_plan=long_term_plan)
 
@@ -207,7 +320,11 @@ def _print_summary(
 def main(argv: list[str] | None = None) -> int:
     parser = _build_arg_parser()
     args = parser.parse_args(argv)
-    recommendation = build_plan(args)
+    try:
+        recommendation = build_plan(args)
+    except ValueError as exc:
+        print(f"error: {exc}")
+        return 2
     paths = _write_artifacts(args.artifacts_dir, recommendation)
     _print_summary(recommendation, paths)
     return 0

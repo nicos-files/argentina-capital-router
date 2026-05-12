@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping, Optional, Sequence
 
 
 @dataclass(frozen=True)
@@ -23,6 +23,11 @@ class DailyCapitalPlan:
     long_term_allocations: Sequence[Mapping[str, Any]]
     warnings: Sequence[str] = field(default_factory=tuple)
     metadata: Mapping[str, Any] = field(default_factory=dict)
+    market_snapshot_id: Optional[str] = None
+    prices_used: Sequence[Mapping[str, Any]] = field(default_factory=tuple)
+    fx_rates_used: Sequence[Mapping[str, Any]] = field(default_factory=tuple)
+    rate_inputs_used: Sequence[Mapping[str, Any]] = field(default_factory=tuple)
+    data_warnings: Sequence[str] = field(default_factory=tuple)
 
 
 @dataclass(frozen=True)

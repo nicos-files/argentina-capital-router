@@ -1,0 +1,81 @@
+{
+  "schema_version": "1.0",
+  "snapshot_id": "manual-example-2026-05-12",
+  "as_of": "2026-05-12",
+  "source": "manual",
+  "manual_review_only": true,
+  "live_trading_enabled": false,
+  "data_frequency": "1d",
+  "quotes": [
+    {
+      "symbol": "SPY",
+      "asset_class": "cedear",
+      "price": 10000.0,
+      "currency": "ARS",
+      "as_of": "2026-05-12",
+      "provider": "manual",
+      "delayed": true,
+      "notes": "Example placeholder CEDEAR quote; replace with real manual input."
+    },
+    {
+      "symbol": "GGAL",
+      "asset_class": "argentina_equity",
+      "price": 5000.0,
+      "currency": "ARS",
+      "as_of": "2026-05-12",
+      "provider": "manual",
+      "delayed": true,
+      "notes": "Example placeholder local equity quote; replace with real manual input."
+    }
+  ],
+  "fx_rates": {
+    "USDARS_MEP": {
+      "rate": 1200.0,
+      "as_of": "2026-05-12",
+      "provider": "manual",
+      "delayed": true,
+      "notes": "Example placeholder."
+    },
+    "USDARS_CCL": {
+      "rate": 1220.0,
+      "as_of": "2026-05-12",
+      "provider": "manual",
+      "delayed": true,
+      "notes": "Example placeholder."
+    },
+    "USDARS_OFFICIAL": {
+      "rate": 1000.0,
+      "as_of": "2026-05-12",
+      "provider": "manual",
+      "delayed": true,
+      "notes": "Example placeholder."
+    }
+  },
+  "rates": {
+    "money_market_monthly_pct": {
+      "value": 2.5,
+      "as_of": "2026-05-12",
+      "provider": "manual",
+      "notes": "Example placeholder monthly rate."
+    },
+    "caucion_monthly_pct": {
+      "value": 2.8,
+      "as_of": "2026-05-12",
+      "provider": "manual",
+      "notes": "Example placeholder monthly-equivalent rate."
+    },
+    "expected_fx_devaluation_monthly_pct": {
+      "value": 1.5,
+      "as_of": "2026-05-12",
+      "provider": "manual",
+      "notes": "Example placeholder expectation."
+    }
+  },
+  "quality": {
+    "warnings": [
+      "Example manual snapshot only. Replace placeholder values before real use.",
+      "Delayed/manual data is not suitable for intraday trading."
+    ],
+    "completeness": "partial"
+  }
+}

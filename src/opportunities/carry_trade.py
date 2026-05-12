@@ -5,6 +5,10 @@ Offline-only scoring. Not a real recommendation engine. Manual review only.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from src.market_data.manual_snapshot import ManualMarketSnapshot
 
 
 ATTRACTIVE = "ATTRACTIVE"
@@ -87,6 +91,58 @@ def score_carry_opportunity(inputs: CarryInputs) -> CarryScore:
     )
 
 
+def build_carry_inputs_from_snapshot(
+    snapshot: "ManualMarketSnapshot",
+    rate_key: str = "money_market_monthly_pct",
+    expected_fx_key: str = "expected_fx_devaluation_monthly_pct",
+    estimated_cost_pct: float = 0.2,
+    duration_days: int = 7,
+    fx_risk_score: float = 50.0,
+    liquidity_risk_score: float = 40.0,
+    opportunity_id: str = "snapshot_carry",
+    notes: str = "",
+) -> CarryInputs:
+    """Build :class:`CarryInputs` from a manual market snapshot.
+
+    No network. No financial advice. Manual review only.
+
+    Raises:
+        ValueError: if the snapshot is missing either the expected monthly rate
+            entry under ``rate_key`` or the expected FX devaluation entry under
+            ``expected_fx_key``.
+    """
+    from src.market_data.manual_snapshot import get_rate_input
+
+    rate_entry = get_rate_input(snapshot, rate_key)
+    if rate_entry is None:
+        raise ValueError(
+            f"snapshot is missing rate key {rate_key!r}; "
+            "cannot build carry inputs."
+        )
+    fx_entry = get_rate_input(snapshot, expected_fx_key)
+    if fx_entry is None:
+        raise ValueError(
+            f"snapshot is missing expected FX devaluation key {expected_fx_key!r}; "
+            "cannot build carry inputs."
+        )
+
+    derived_notes = notes or (
+        f"Built from snapshot {snapshot.snapshot_id} as_of {snapshot.as_of}; "
+        f"rate_key={rate_key}; expected_fx_key={expected_fx_key}."
+    )
+
+    return CarryInputs(
+        opportunity_id=str(opportunity_id),
+        expected_monthly_rate_pct=float(rate_entry.value),
+        expected_fx_devaluation_pct=float(fx_entry.value),
+        estimated_cost_pct=float(estimated_cost_pct),
+        duration_days=int(duration_days),
+        fx_risk_score=float(fx_risk_score),
+        liquidity_risk_score=float(liquidity_risk_score),
+        notes=derived_notes,
+    )
+
+
 __all__ = [
     "ATTRACTIVE",
     "MODERATE",
@@ -95,4 +151,5 @@ __all__ = [
     "CarryInputs",
     "CarryScore",
     "score_carry_opportunity",
+    "build_carry_inputs_from_snapshot",
 ]
