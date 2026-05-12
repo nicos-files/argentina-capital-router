@@ -32,6 +32,23 @@ class ContributionAllocation:
     rationale: str
 
 
+@dataclass(frozen=True)
+class SkippedContributionAllocation:
+    symbol: str
+    asset_class: str
+    bucket: str
+    suggested_usd: float
+    reason: str
+
+
+@dataclass(frozen=True)
+class ContributionAllocationPlan:
+    allocations: tuple
+    skipped_allocations: tuple
+    unallocated_usd: float
+    warnings: tuple
+
+
 def _eligible(assets: Iterable[ArgentinaAsset]) -> list[ArgentinaAsset]:
     return [
         a for a in assets if a.enabled and a.long_term_enabled
@@ -341,8 +358,318 @@ def allocate_monthly_contribution_with_portfolio(
     return _normalize_to_contribution(allocations, contribution)
 
 
+def _policy_min_trade_usd(policy: LongTermPolicy) -> float:
+    try:
+        return max(0.0, float(policy.constraints.get("min_trade_usd", 0.0)))
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _policy_max_allocations(policy: LongTermPolicy) -> int:
+    raw = policy.constraints.get("max_allocations_per_contribution", 0)
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return 0
+    return max(0, value)
+
+
+def _bucket_is_overweight(
+    bucket: str, valuation: Optional[PortfolioValuation], policy: LongTermPolicy
+) -> bool:
+    if valuation is None or not valuation.bucket_weights:
+        return False
+    targets = _bucket_target_pcts(policy)
+    target = float(targets.get(bucket, 0.0))
+    if target <= 0:
+        return False
+    current = float(valuation.bucket_weights.get(bucket, 0.0))
+    return current > target
+
+
+def _redistribute(
+    kept: list[ContributionAllocation], extra_usd: float
+) -> list[ContributionAllocation]:
+    """Spread ``extra_usd`` across ``kept`` allocations proportionally."""
+    if extra_usd <= 0 or not kept:
+        return kept
+    base_total = sum(a.allocation_usd for a in kept)
+    if base_total <= 0:
+        per_each = extra_usd / len(kept)
+        return [
+            ContributionAllocation(
+                symbol=a.symbol,
+                asset_class=a.asset_class,
+                allocation_usd=a.allocation_usd + per_each,
+                bucket=a.bucket,
+                rationale=a.rationale,
+            )
+            for a in kept
+        ]
+    return [
+        ContributionAllocation(
+            symbol=a.symbol,
+            asset_class=a.asset_class,
+            allocation_usd=a.allocation_usd + extra_usd * (a.allocation_usd / base_total),
+            bucket=a.bucket,
+            rationale=a.rationale,
+        )
+        for a in kept
+    ]
+
+
+def _normalize_total(
+    allocations: list[ContributionAllocation], target_total: float
+) -> list[ContributionAllocation]:
+    total = sum(a.allocation_usd for a in allocations)
+    if total <= 0 or abs(total - target_total) <= 1e-9:
+        return allocations
+    factor = target_total / total
+    return [
+        ContributionAllocation(
+            symbol=a.symbol,
+            asset_class=a.asset_class,
+            allocation_usd=a.allocation_usd * factor,
+            bucket=a.bucket,
+            rationale=a.rationale,
+        )
+        for a in allocations
+    ]
+
+
+def build_contribution_allocation_plan(
+    contribution_usd: float,
+    assets: Iterable[ArgentinaAsset],
+    policy: LongTermPolicy,
+    valuation: Optional[PortfolioValuation] = None,
+) -> ContributionAllocationPlan:
+    """Produce a clean contribution plan that respects ``min_trade_usd`` and
+    ``max_allocations_per_contribution`` from the policy.
+
+    Pipeline:
+    1. Generate candidate allocations via the portfolio-aware allocator (which
+       internally falls back to the deterministic allocator when no valuation
+       is available).
+    2. Drop candidates below ``min_trade_usd``; redistribute the skipped USD
+       to the retained candidates.
+    3. If more than ``max_allocations_per_contribution`` remain, keep the
+       largest by ``allocation_usd`` and skip the rest, redistributing again.
+    4. If nothing remains, concentrate the contribution into the largest
+       original candidate (when ``contribution_usd >= min_trade_usd``) or park
+       it in ``CASH_OR_YIELD`` (when ``contribution_usd < min_trade_usd``).
+       In both cases, an explanatory warning is added.
+    5. Final allocations are normalized to ``contribution_usd`` and sorted by
+       ``allocation_usd`` desc.
+    """
+    contribution = float(contribution_usd)
+    if contribution <= 0:
+        return ContributionAllocationPlan(
+            allocations=tuple(),
+            skipped_allocations=tuple(),
+            unallocated_usd=0.0,
+            warnings=tuple(),
+        )
+
+    min_trade = _policy_min_trade_usd(policy)
+    max_count = _policy_max_allocations(policy)
+
+    candidates = list(
+        allocate_monthly_contribution_with_portfolio(
+            contribution, assets, policy, valuation=valuation
+        )
+    )
+
+    warnings: list[str] = []
+    skipped: list[SkippedContributionAllocation] = []
+
+    if not candidates:
+        return ContributionAllocationPlan(
+            allocations=tuple(),
+            skipped_allocations=tuple(),
+            unallocated_usd=contribution,
+            warnings=(
+                "No eligible candidate allocations were produced by the allocator.",
+            ),
+        )
+
+    # Edge case: contribution itself is below min_trade_usd. Park in cash.
+    if contribution < min_trade:
+        cash_overweight = _bucket_is_overweight(
+            "cash_or_short_term_yield", valuation, policy
+        )
+        warning = (
+            f"Contribution {contribution:.2f} USD below min_trade_usd "
+            f"({min_trade:.2f}); parked in cash/yield bucket for manual review."
+        )
+        if cash_overweight:
+            warning += (
+                " Note: cash_or_short_term_yield bucket is currently overweight."
+            )
+        warnings.append(warning)
+        skipped = [
+            SkippedContributionAllocation(
+                symbol=c.symbol,
+                asset_class=c.asset_class,
+                bucket=c.bucket,
+                suggested_usd=c.allocation_usd,
+                reason="Contribution below min_trade_usd; redirected to cash/yield.",
+            )
+            for c in candidates
+        ]
+        return ContributionAllocationPlan(
+            allocations=(
+                ContributionAllocation(
+                    symbol="CASH_OR_YIELD",
+                    asset_class="cash",
+                    allocation_usd=contribution,
+                    bucket="cash_or_short_term_yield",
+                    rationale=(
+                        f"Contribution below min_trade_usd ({min_trade:.2f}); "
+                        "parked in cash/yield placeholder for manual review."
+                    ),
+                ),
+            ),
+            skipped_allocations=tuple(skipped),
+            unallocated_usd=0.0,
+            warnings=tuple(warnings),
+        )
+
+    # Step 2: drop micro-allocations.
+    kept: list[ContributionAllocation] = []
+    for c in candidates:
+        if c.allocation_usd + 1e-9 < min_trade:
+            skipped.append(
+                SkippedContributionAllocation(
+                    symbol=c.symbol,
+                    asset_class=c.asset_class,
+                    bucket=c.bucket,
+                    suggested_usd=c.allocation_usd,
+                    reason=(
+                        f"Below min_trade_usd threshold "
+                        f"({c.allocation_usd:.2f} < {min_trade:.2f})."
+                    ),
+                )
+            )
+        else:
+            kept.append(c)
+
+    if skipped:
+        warnings.append(
+            f"Skipped {len(skipped)} allocation(s) below min_trade_usd "
+            f"({min_trade:.2f} USD); amounts redistributed to retained "
+            "allocations."
+        )
+
+    # Step 3: enforce max_allocations_per_contribution.
+    if max_count > 0 and len(kept) > max_count:
+        # Sort by allocation_usd desc, then symbol asc for determinism on ties.
+        kept_sorted = sorted(
+            kept, key=lambda a: (-a.allocation_usd, a.symbol)
+        )
+        retained = kept_sorted[:max_count]
+        excess = kept_sorted[max_count:]
+        for e in excess:
+            skipped.append(
+                SkippedContributionAllocation(
+                    symbol=e.symbol,
+                    asset_class=e.asset_class,
+                    bucket=e.bucket,
+                    suggested_usd=e.allocation_usd,
+                    reason=(
+                        "Exceeded max_allocations_per_contribution "
+                        f"({max_count})."
+                    ),
+                )
+            )
+        warnings.append(
+            f"Capped allocations at {max_count}; "
+            f"redistributed {len(excess)} skipped allocation(s) to retained set."
+        )
+        kept = retained
+
+    # Step 4: nothing left -> concentrate or park in cash.
+    if not kept:
+        if contribution >= min_trade:
+            # Concentrate into the largest original candidate (deterministic
+            # by allocation_usd desc, then symbol asc).
+            top = sorted(
+                candidates, key=lambda a: (-a.allocation_usd, a.symbol)
+            )[0]
+            warnings.append(
+                "All candidate allocations were below min_trade_usd; "
+                f"concentrated full contribution into top candidate {top.symbol}."
+            )
+            kept = [
+                ContributionAllocation(
+                    symbol=top.symbol,
+                    asset_class=top.asset_class,
+                    allocation_usd=contribution,
+                    bucket=top.bucket,
+                    rationale=(
+                        f"{top.rationale} (Concentrated: all candidate allocations "
+                        f"were below min_trade_usd of {min_trade:.2f}.)"
+                    ),
+                )
+            ]
+        else:
+            cash_overweight = _bucket_is_overweight(
+                "cash_or_short_term_yield", valuation, policy
+            )
+            warning = (
+                "All candidate allocations skipped and contribution below "
+                "min_trade_usd; parked in cash/yield bucket for manual review."
+            )
+            if cash_overweight:
+                warning += (
+                    " Note: cash_or_short_term_yield bucket is currently overweight."
+                )
+            warnings.append(warning)
+            kept = [
+                ContributionAllocation(
+                    symbol="CASH_OR_YIELD",
+                    asset_class="cash",
+                    allocation_usd=contribution,
+                    bucket="cash_or_short_term_yield",
+                    rationale=(
+                        "All candidate allocations were below min_trade_usd "
+                        "and contribution itself is below threshold; parked in "
+                        "cash/yield placeholder for manual review."
+                    ),
+                )
+            ]
+
+    # Step 5: redistribute skipped amount to retained.
+    skipped_usd = sum(s.suggested_usd for s in skipped)
+    if skipped_usd > 0 and kept and len(kept) > 0:
+        # Only redistribute if the kept set didn't already absorb the
+        # contribution (concentration / cash branches above use `contribution`
+        # directly).
+        kept_total = sum(a.allocation_usd for a in kept)
+        if kept_total + 1e-9 < contribution:
+            kept = _redistribute(kept, contribution - kept_total)
+
+    # Step 6: normalize to contribution total and sort by amount desc.
+    kept = _normalize_total(kept, contribution)
+    kept_sorted = sorted(
+        kept, key=lambda a: (-a.allocation_usd, a.symbol)
+    )
+
+    final_total = sum(a.allocation_usd for a in kept_sorted)
+    unallocated_usd = max(0.0, contribution - final_total)
+
+    return ContributionAllocationPlan(
+        allocations=tuple(kept_sorted),
+        skipped_allocations=tuple(skipped),
+        unallocated_usd=unallocated_usd,
+        warnings=tuple(warnings),
+    )
+
+
 __all__ = [
     "ContributionAllocation",
+    "SkippedContributionAllocation",
+    "ContributionAllocationPlan",
     "allocate_monthly_contribution",
     "allocate_monthly_contribution_with_portfolio",
+    "build_contribution_allocation_plan",
 ]

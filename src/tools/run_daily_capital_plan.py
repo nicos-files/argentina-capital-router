@@ -29,8 +29,8 @@ from src.opportunities.carry_trade import (
     score_carry_opportunity,
 )
 from src.portfolio.contribution_allocator import (
-    allocate_monthly_contribution,
-    allocate_monthly_contribution_with_portfolio,
+    ContributionAllocationPlan,
+    build_contribution_allocation_plan,
 )
 from src.portfolio.long_term_policy import load_long_term_policy
 from src.portfolio.portfolio_state import (
@@ -254,16 +254,18 @@ def build_plan(args: argparse.Namespace) -> CapitalPlanRecommendation:
 
     assets = get_enabled_long_term_assets()
     if decision.decision == INVEST_DIRECT_LONG_TERM:
-        if valuation is not None and valuation.total_value_usd > 0:
-            allocations = allocate_monthly_contribution_with_portfolio(
-                monthly, assets, long_term_policy, valuation=valuation
-            )
-        else:
-            allocations = allocate_monthly_contribution(
-                monthly, assets, long_term_policy
-            )
+        contribution_plan: ContributionAllocationPlan = build_contribution_allocation_plan(
+            monthly, assets, long_term_policy, valuation=valuation
+        )
+        allocations = list(contribution_plan.allocations)
+        skipped_allocations_dicts = [asdict(s) for s in contribution_plan.skipped_allocations]
+        unallocated_usd = float(contribution_plan.unallocated_usd)
+        allocation_warnings = tuple(contribution_plan.warnings)
     else:
         allocations = []
+        skipped_allocations_dicts = []
+        unallocated_usd = 0.0
+        allocation_warnings = tuple()
 
     as_of = args.as_of or date.today().isoformat()
     long_term_plan = LongTermContributionPlan(
@@ -354,6 +356,9 @@ def build_plan(args: argparse.Namespace) -> CapitalPlanRecommendation:
         portfolio_total_value_usd=portfolio_total_value_usd,
         current_bucket_weights=current_bucket_weights,
         portfolio_warnings=portfolio_warnings,
+        skipped_allocations=tuple(skipped_allocations_dicts),
+        unallocated_usd=unallocated_usd,
+        allocation_warnings=allocation_warnings,
     )
     return CapitalPlanRecommendation(plan=plan, long_term_plan=long_term_plan)
 
@@ -397,6 +402,12 @@ def _print_summary(
     print(f"  decision: {decision.get('decision')}")
     print(f"  rationale: {decision.get('rationale')}")
     print(f"  long_term_allocations: {len(plan.long_term_allocations)}")
+    if plan.skipped_allocations:
+        print(f"  skipped_allocations: {len(plan.skipped_allocations)}")
+    if plan.unallocated_usd > 0:
+        print(f"  unallocated_usd: {plan.unallocated_usd:.2f}")
+    if plan.allocation_warnings:
+        print(f"  allocation_warnings: {len(plan.allocation_warnings)}")
     if plan.portfolio_snapshot_id:
         print(f"  portfolio_snapshot_id: {plan.portfolio_snapshot_id}")
         if plan.portfolio_total_value_usd is not None:

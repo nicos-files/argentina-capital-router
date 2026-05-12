@@ -59,6 +59,34 @@ def build_daily_report_markdown(plan: DailyCapitalPlan) -> str:
         lines.append("_No warnings._")
     lines.append("")
 
+    if plan.allocation_warnings:
+        lines.append("## Allocation Warnings")
+        lines.append("")
+        for warning in plan.allocation_warnings:
+            lines.append(f"- {warning}")
+        lines.append("")
+
+    if plan.skipped_allocations:
+        lines.append("## Skipped Allocations")
+        lines.append("")
+        lines.append("| Symbol | Bucket | Suggested USD | Reason |")
+        lines.append("| --- | --- | ---: | --- |")
+        for skipped in plan.skipped_allocations:
+            symbol = skipped.get("symbol", "?")
+            bucket = skipped.get("bucket", "?")
+            suggested = float(skipped.get("suggested_usd", 0.0))
+            reason = skipped.get("reason", "")
+            lines.append(f"| {symbol} | {bucket} | {suggested:.2f} | {reason} |")
+        lines.append("")
+
+    if plan.unallocated_usd and float(plan.unallocated_usd) > 0:
+        lines.append("## Unallocated USD")
+        lines.append("")
+        lines.append(
+            f"- **Unallocated:** {float(plan.unallocated_usd):.2f} USD"
+        )
+        lines.append("")
+
     if plan.market_snapshot_id:
         completeness = ""
         snapshot_as_of = ""

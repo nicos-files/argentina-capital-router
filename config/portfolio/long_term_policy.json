@@ -16,7 +16,8 @@
     "max_sector_pct": 35,
     "min_trade_usd": 10,
     "rebalance_threshold_pct": 5,
-    "cash_reserve_pct": 5
+    "cash_reserve_pct": 5,
+    "max_allocations_per_contribution": 5
   },
   "risk_buckets": {
     "low": {

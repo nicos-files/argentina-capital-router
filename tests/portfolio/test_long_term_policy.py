@@ -40,5 +40,65 @@ class LongTermPolicyTests(unittest.TestCase):
             )
 
 
+    def test_invalid_max_allocations_per_contribution(self) -> None:
+        with self.assertRaises(ValueError):
+            validate_long_term_policy(
+                {
+                    "manual_review_only": True,
+                    "live_trading_enabled": False,
+                    "default_monthly_contribution_usd": 200,
+                    "target_allocations": {
+                        "core_global_equity_pct": 50,
+                        "cedears_single_names_pct": 20,
+                        "argentina_equity_pct": 20,
+                        "cash_or_short_term_yield_pct": 10,
+                    },
+                    "constraints": {
+                        "max_single_position_pct": 10,
+                        "max_sector_pct": 30,
+                        "min_trade_usd": 10,
+                        "rebalance_threshold_pct": 5,
+                        "cash_reserve_pct": 5,
+                        "max_allocations_per_contribution": 0,
+                    },
+                    "risk_buckets": {
+                        "low": {"max_total_pct": 80},
+                        "medium": {"max_total_pct": 60},
+                        "high": {"max_total_pct": 30},
+                        "speculative": {"max_total_pct": 10},
+                    },
+                }
+            )
+
+    def test_missing_max_allocations_per_contribution(self) -> None:
+        with self.assertRaises(ValueError):
+            validate_long_term_policy(
+                {
+                    "manual_review_only": True,
+                    "live_trading_enabled": False,
+                    "default_monthly_contribution_usd": 200,
+                    "target_allocations": {
+                        "core_global_equity_pct": 50,
+                        "cedears_single_names_pct": 20,
+                        "argentina_equity_pct": 20,
+                        "cash_or_short_term_yield_pct": 10,
+                    },
+                    "constraints": {
+                        "max_single_position_pct": 10,
+                        "max_sector_pct": 30,
+                        "min_trade_usd": 10,
+                        "rebalance_threshold_pct": 5,
+                        "cash_reserve_pct": 5,
+                    },
+                    "risk_buckets": {
+                        "low": {"max_total_pct": 80},
+                        "medium": {"max_total_pct": 60},
+                        "high": {"max_total_pct": 30},
+                        "speculative": {"max_total_pct": 10},
+                    },
+                }
+            )
+
+
 if __name__ == "__main__":
     unittest.main()

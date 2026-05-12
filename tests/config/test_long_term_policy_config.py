@@ -23,6 +23,17 @@ class LongTermPolicyConfigTests(unittest.TestCase):
         self.assertIs(self.data["manual_review_only"], True)
         self.assertIs(self.data["live_trading_enabled"], False)
 
+    def test_min_trade_usd_present_and_non_negative(self) -> None:
+        constraints = self.data["constraints"]
+        self.assertIn("min_trade_usd", constraints)
+        self.assertGreaterEqual(float(constraints["min_trade_usd"]), 0.0)
+
+    def test_max_allocations_per_contribution_present_and_positive(self) -> None:
+        constraints = self.data["constraints"]
+        self.assertIn("max_allocations_per_contribution", constraints)
+        value = int(constraints["max_allocations_per_contribution"])
+        self.assertGreater(value, 0)
+
 
 if __name__ == "__main__":
     unittest.main()

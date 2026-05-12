@@ -306,5 +306,96 @@ class RunDailyCapitalPlanWithPortfolioTests(unittest.TestCase):
             self.assertFalse((tmp / "final_decision.json").exists())
 
 
+class RunDailyCapitalPlanAllocationCleanlinessTests(unittest.TestCase):
+    """Tests focused on min_trade_usd / max_allocations_per_contribution
+    enforcement at the CLI / artifact level."""
+
+    def _run(self, extra_args: list[str], tmp: Path) -> int:
+        argv = [
+            "--as-of",
+            "2026-05-12",
+            "--monthly-contribution-usd",
+            "200",
+            "--artifacts-dir",
+            str(tmp),
+            *extra_args,
+        ]
+        return cli.main(argv)
+
+    def _read_plan(self, tmp: Path) -> dict:
+        return json.loads(
+            (tmp / "capital_routing" / "daily_capital_plan.json").read_text(
+                encoding="utf-8"
+            )
+        )
+
+    def _read_report(self, tmp: Path) -> str:
+        return (tmp / "reports" / "daily_report.md").read_text(encoding="utf-8")
+
+    def test_default_run_has_no_micro_allocations(self) -> None:
+        # Default policy has min_trade_usd=10. With USD 200 and 6 Argentina
+        # equity names, the raw split would be ~6.67/name; those must be
+        # skipped, not present in long_term_allocations.
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp = Path(tmp_dir)
+            rc = self._run([], tmp)
+            self.assertEqual(rc, 0)
+            plan = self._read_plan(tmp)
+            self.assertIs(plan["manual_review_only"], True)
+            self.assertIs(plan["live_trading_enabled"], False)
+            for a in plan["long_term_allocations"]:
+                self.assertGreaterEqual(float(a["allocation_usd"]) + 1e-9, 10.0)
+            self.assertGreater(len(plan["skipped_allocations"]), 0)
+            self.assertGreater(len(plan["allocation_warnings"]), 0)
+
+    def test_report_includes_skipped_and_allocation_warnings(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp = Path(tmp_dir)
+            rc = self._run([], tmp)
+            self.assertEqual(rc, 0)
+            report = self._read_report(tmp)
+            self.assertIn("## Allocation Warnings", report)
+            self.assertIn("## Skipped Allocations", report)
+
+    def test_portfolio_market_run_has_no_micro_allocations(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp = Path(tmp_dir)
+            rc = self._run(
+                [
+                    "--market-snapshot",
+                    str(EXAMPLE_SNAPSHOT),
+                    "--portfolio-snapshot",
+                    str(EXAMPLE_PORTFOLIO),
+                ],
+                tmp,
+            )
+            self.assertEqual(rc, 0)
+            plan = self._read_plan(tmp)
+            for a in plan["long_term_allocations"]:
+                self.assertGreaterEqual(float(a["allocation_usd"]) + 1e-9, 10.0)
+            total = sum(float(a["allocation_usd"]) for a in plan["long_term_allocations"])
+            self.assertAlmostEqual(
+                total + float(plan.get("unallocated_usd", 0.0)), 200.0, places=4
+            )
+            # No forbidden artifacts.
+            self.assertFalse((tmp / "execution.plan").exists())
+            self.assertFalse((tmp / "final_decision.json").exists())
+
+    def test_artifact_includes_skipped_and_unallocated_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp = Path(tmp_dir)
+            rc = self._run([], tmp)
+            self.assertEqual(rc, 0)
+            plan = self._read_plan(tmp)
+            self.assertIn("skipped_allocations", plan)
+            self.assertIn("unallocated_usd", plan)
+            self.assertIn("allocation_warnings", plan)
+            for s in plan["skipped_allocations"]:
+                self.assertIn("symbol", s)
+                self.assertIn("bucket", s)
+                self.assertIn("suggested_usd", s)
+                self.assertIn("reason", s)
+
+
 if __name__ == "__main__":
     unittest.main()

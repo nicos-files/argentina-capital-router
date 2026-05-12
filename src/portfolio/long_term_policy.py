@@ -24,6 +24,7 @@ _REQUIRED_CONSTRAINT_KEYS = (
     "min_trade_usd",
     "rebalance_threshold_pct",
     "cash_reserve_pct",
+    "max_allocations_per_contribution",
 )
 _REQUIRED_RISK_BUCKETS = ("low", "medium", "high", "speculative")
 
@@ -83,6 +84,14 @@ def validate_long_term_policy(data: Mapping[str, Any]) -> None:
         raise ValueError("constraints.min_trade_usd must be >= 0")
     if float(constraints["max_single_position_pct"]) <= 0:
         raise ValueError("constraints.max_single_position_pct must be > 0")
+    try:
+        max_allocs = int(constraints["max_allocations_per_contribution"])
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            "constraints.max_allocations_per_contribution must be an integer"
+        ) from exc
+    if max_allocs <= 0:
+        raise ValueError("constraints.max_allocations_per_contribution must be > 0")
 
     risk_buckets = data.get("risk_buckets")
     if not isinstance(risk_buckets, Mapping):
