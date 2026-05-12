@@ -1,0 +1,61 @@
+{
+  "schema_version": "1.0",
+  "snapshot_id": "manual-portfolio-example-2026-05-12",
+  "as_of": "2026-05-12",
+  "source": "manual",
+  "base_currency": "USD",
+  "manual_review_only": true,
+  "live_trading_enabled": false,
+  "cash": [
+    {
+      "currency": "USD",
+      "amount": 100.0,
+      "bucket": "reserve",
+      "notes": "Example available USD cash."
+    },
+    {
+      "currency": "ARS",
+      "amount": 50000.0,
+      "bucket": "cash_or_short_term_yield",
+      "notes": "Example ARS balance or money market equivalent."
+    }
+  ],
+  "positions": [
+    {
+      "symbol": "SPY",
+      "asset_class": "cedear",
+      "quantity": 2.0,
+      "average_cost": 9500.0,
+      "average_cost_currency": "ARS",
+      "market": "BYMA",
+      "bucket": "core_global_equity",
+      "notes": "Example CEDEAR position."
+    },
+    {
+      "symbol": "AAPL",
+      "asset_class": "cedear",
+      "quantity": 1.0,
+      "average_cost": 12000.0,
+      "average_cost_currency": "ARS",
+      "market": "BYMA",
+      "bucket": "cedears_single_names",
+      "notes": "Example CEDEAR position."
+    },
+    {
+      "symbol": "GGAL",
+      "asset_class": "argentina_equity",
+      "quantity": 3.0,
+      "average_cost": 5000.0,
+      "average_cost_currency": "ARS",
+      "market": "BYMA",
+      "bucket": "argentina_equity",
+      "notes": "Example local equity position."
+    }
+  ],
+  "quality": {
+    "warnings": [
+      "Example manual portfolio snapshot only. Replace with real holdings before use."
+    ],
+    "completeness": "partial"
+  }
+}

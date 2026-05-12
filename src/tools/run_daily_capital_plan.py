@@ -28,8 +28,20 @@ from src.opportunities.carry_trade import (
     build_carry_inputs_from_snapshot,
     score_carry_opportunity,
 )
-from src.portfolio.contribution_allocator import allocate_monthly_contribution
+from src.portfolio.contribution_allocator import (
+    allocate_monthly_contribution,
+    allocate_monthly_contribution_with_portfolio,
+)
 from src.portfolio.long_term_policy import load_long_term_policy
+from src.portfolio.portfolio_state import (
+    ManualPortfolioSnapshot,
+    load_manual_portfolio_snapshot,
+    summarize_portfolio_snapshot,
+)
+from src.portfolio.portfolio_valuation import (
+    PortfolioValuation,
+    value_portfolio,
+)
 from src.recommendations.models import (
     CapitalPlanRecommendation,
     DailyCapitalPlan,
@@ -105,6 +117,15 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         type=str,
         default="expected_fx_devaluation_monthly_pct",
         help="Snapshot rate key for expected FX devaluation (monthly pct).",
+    )
+    parser.add_argument(
+        "--portfolio-snapshot",
+        type=Path,
+        default=None,
+        help=(
+            "Optional path to a manual portfolio snapshot JSON file. "
+            "Read-only, no broker."
+        ),
     )
     parser.add_argument(
         "--artifacts-dir",
@@ -220,9 +241,27 @@ def build_plan(args: argparse.Namespace) -> CapitalPlanRecommendation:
 
     decision = route_capital(policy, capital_state, opportunity=opportunity)
 
+    portfolio: Optional[ManualPortfolioSnapshot] = None
+    valuation: Optional[PortfolioValuation] = None
+    if args.portfolio_snapshot is not None:
+        portfolio = load_manual_portfolio_snapshot(args.portfolio_snapshot)
+        valuation = value_portfolio(portfolio, market_snapshot=snapshot)
+        if portfolio.completeness == "partial":
+            extra_warnings.append(
+                f"Portfolio snapshot completeness is partial "
+                f"(snapshot_id={portfolio.snapshot_id})."
+            )
+
     assets = get_enabled_long_term_assets()
     if decision.decision == INVEST_DIRECT_LONG_TERM:
-        allocations = allocate_monthly_contribution(monthly, assets, long_term_policy)
+        if valuation is not None and valuation.total_value_usd > 0:
+            allocations = allocate_monthly_contribution_with_portfolio(
+                monthly, assets, long_term_policy, valuation=valuation
+            )
+        else:
+            allocations = allocate_monthly_contribution(
+                monthly, assets, long_term_policy
+            )
     else:
         allocations = []
 
@@ -251,6 +290,50 @@ def build_plan(args: argparse.Namespace) -> CapitalPlanRecommendation:
             "summary": snapshot_extras.get("summary", {}),
         }
 
+    portfolio_warnings: tuple = tuple()
+    current_bucket_weights: dict[str, float] = {}
+    portfolio_total_value_usd: Optional[float] = None
+    if portfolio is not None:
+        portfolio_warnings = tuple(portfolio.warnings)
+        if valuation is not None:
+            current_bucket_weights = dict(valuation.bucket_weights)
+            portfolio_total_value_usd = float(valuation.total_value_usd)
+            portfolio_warnings = portfolio_warnings + tuple(
+                w for w in valuation.warnings if w not in portfolio_warnings
+            )
+        target_bucket_weights = {
+            "core_global_equity": float(
+                long_term_policy.target_allocations.get(
+                    "core_global_equity_pct", 0.0
+                )
+            ),
+            "cedears_single_names": float(
+                long_term_policy.target_allocations.get(
+                    "cedears_single_names_pct", 0.0
+                )
+            ),
+            "argentina_equity": float(
+                long_term_policy.target_allocations.get(
+                    "argentina_equity_pct", 0.0
+                )
+            ),
+            "cash_or_short_term_yield": float(
+                long_term_policy.target_allocations.get(
+                    "cash_or_short_term_yield_pct", 0.0
+                )
+            ),
+        }
+        metadata["portfolio_snapshot"] = {
+            "snapshot_id": portfolio.snapshot_id,
+            "as_of": portfolio.as_of,
+            "source": portfolio.source,
+            "completeness": portfolio.completeness,
+            "summary": summarize_portfolio_snapshot(portfolio),
+            "target_bucket_weights": target_bucket_weights,
+            "valuation_available": valuation is not None
+            and valuation.total_value_usd > 0,
+        }
+
     plan = DailyCapitalPlan(
         as_of=as_of,
         manual_review_only=True,
@@ -265,6 +348,12 @@ def build_plan(args: argparse.Namespace) -> CapitalPlanRecommendation:
         fx_rates_used=tuple(snapshot_extras.get("fx_rates_used", [])),
         rate_inputs_used=tuple(snapshot_extras.get("rate_inputs_used", [])),
         data_warnings=tuple(snapshot_extras.get("data_warnings", [])),
+        portfolio_snapshot_id=(
+            portfolio.snapshot_id if portfolio is not None else None
+        ),
+        portfolio_total_value_usd=portfolio_total_value_usd,
+        current_bucket_weights=current_bucket_weights,
+        portfolio_warnings=portfolio_warnings,
     )
     return CapitalPlanRecommendation(plan=plan, long_term_plan=long_term_plan)
 
@@ -308,6 +397,15 @@ def _print_summary(
     print(f"  decision: {decision.get('decision')}")
     print(f"  rationale: {decision.get('rationale')}")
     print(f"  long_term_allocations: {len(plan.long_term_allocations)}")
+    if plan.portfolio_snapshot_id:
+        print(f"  portfolio_snapshot_id: {plan.portfolio_snapshot_id}")
+        if plan.portfolio_total_value_usd is not None:
+            print(
+                f"  portfolio_total_value_usd: {plan.portfolio_total_value_usd:.2f}"
+            )
+        else:
+            print("  portfolio_total_value_usd: unavailable")
+        print(f"  portfolio_warnings: {len(plan.portfolio_warnings)}")
     if plan.warnings:
         print("  warnings:")
         for w in plan.warnings:

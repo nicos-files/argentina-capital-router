@@ -28,6 +28,10 @@ class DailyCapitalPlan:
     fx_rates_used: Sequence[Mapping[str, Any]] = field(default_factory=tuple)
     rate_inputs_used: Sequence[Mapping[str, Any]] = field(default_factory=tuple)
     data_warnings: Sequence[str] = field(default_factory=tuple)
+    portfolio_snapshot_id: Optional[str] = None
+    portfolio_total_value_usd: Optional[float] = None
+    current_bucket_weights: Mapping[str, float] = field(default_factory=dict)
+    portfolio_warnings: Sequence[str] = field(default_factory=tuple)
 
 
 @dataclass(frozen=True)

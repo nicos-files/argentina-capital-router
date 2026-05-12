@@ -11,6 +11,9 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 EXAMPLE_SNAPSHOT = (
     REPO_ROOT / "config" / "data_inputs" / "manual_market_snapshot.example.json"
 )
+EXAMPLE_PORTFOLIO = (
+    REPO_ROOT / "config" / "portfolio" / "manual_portfolio_snapshot.example.json"
+)
 
 
 class RunDailyCapitalPlanTests(unittest.TestCase):
@@ -189,6 +192,118 @@ class RunDailyCapitalPlanWithSnapshotTests(unittest.TestCase):
             tmp = Path(tmp_dir)
             rc = self._run(["--carry-from-snapshot"], tmp)
             self.assertEqual(rc, 2)
+
+
+class RunDailyCapitalPlanWithPortfolioTests(unittest.TestCase):
+    def _run(self, extra_args: list[str], tmp: Path) -> int:
+        argv = [
+            "--as-of",
+            "2026-05-12",
+            "--monthly-contribution-usd",
+            "200",
+            "--artifacts-dir",
+            str(tmp),
+            *extra_args,
+        ]
+        return cli.main(argv)
+
+    def test_portfolio_only_no_market_snapshot(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp = Path(tmp_dir)
+            rc = self._run(["--portfolio-snapshot", str(EXAMPLE_PORTFOLIO)], tmp)
+            self.assertEqual(rc, 0)
+            plan = json.loads(
+                (tmp / "capital_routing" / "daily_capital_plan.json").read_text(encoding="utf-8")
+            )
+            self.assertIs(plan["manual_review_only"], True)
+            self.assertIs(plan["live_trading_enabled"], False)
+            self.assertEqual(
+                plan["portfolio_snapshot_id"], "manual-portfolio-example-2026-05-12"
+            )
+            # Without a market snapshot, only USD cash is valued -> total = 100.0
+            self.assertEqual(plan["portfolio_total_value_usd"], 100.0)
+            self.assertGreater(len(plan["portfolio_warnings"]), 0)
+            self.assertFalse((tmp / "execution.plan").exists())
+            self.assertFalse((tmp / "final_decision.json").exists())
+
+            report = (tmp / "reports" / "daily_report.md").read_text(encoding="utf-8")
+            self.assertIn("## Portfolio Snapshot", report)
+            self.assertIn("manual-portfolio-example-2026-05-12", report)
+
+    def test_portfolio_with_market_snapshot(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp = Path(tmp_dir)
+            rc = self._run(
+                [
+                    "--market-snapshot",
+                    str(EXAMPLE_SNAPSHOT),
+                    "--portfolio-snapshot",
+                    str(EXAMPLE_PORTFOLIO),
+                ],
+                tmp,
+            )
+            self.assertEqual(rc, 0)
+            plan = json.loads(
+                (tmp / "capital_routing" / "daily_capital_plan.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(
+                plan["portfolio_snapshot_id"], "manual-portfolio-example-2026-05-12"
+            )
+            self.assertIsNotNone(plan["portfolio_total_value_usd"])
+            self.assertGreater(plan["portfolio_total_value_usd"], 100.0)
+            self.assertIn("market_snapshot", plan["metadata"])
+            self.assertIn("portfolio_snapshot", plan["metadata"])
+            self.assertTrue(plan["metadata"]["portfolio_snapshot"]["valuation_available"])
+            # current_bucket_weights should sum to ~100 when valuation > 0
+            weights = plan["current_bucket_weights"]
+            self.assertAlmostEqual(sum(weights.values()), 100.0, places=4)
+            # The example portfolio holds a large USD reserve that makes
+            # cash_or_short_term_yield overweight (~24% vs 10% target). The
+            # portfolio-aware allocator must NOT add to that overweight bucket.
+            allocations = plan["long_term_allocations"]
+            self.assertGreater(len(allocations), 0)
+            total = sum(a["allocation_usd"] for a in allocations)
+            self.assertAlmostEqual(total, 200.0, places=4)
+            buckets = {a["bucket"] for a in allocations}
+            self.assertNotIn("cash_or_short_term_yield", buckets)
+            # Allocator rationales should mention "underweight" routing.
+            self.assertTrue(
+                any("underweight" in a.get("rationale", "").lower() for a in allocations)
+            )
+
+            report = (tmp / "reports" / "daily_report.md").read_text(encoding="utf-8")
+            self.assertIn("## Portfolio Snapshot", report)
+            self.assertIn("## Current Bucket Weights", report)
+            self.assertIn("Target %", report)
+
+    def test_portfolio_with_market_snapshot_and_carry_from_snapshot(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp = Path(tmp_dir)
+            rc = self._run(
+                [
+                    "--market-snapshot",
+                    str(EXAMPLE_SNAPSHOT),
+                    "--portfolio-snapshot",
+                    str(EXAMPLE_PORTFOLIO),
+                    "--carry-from-snapshot",
+                ],
+                tmp,
+            )
+            self.assertEqual(rc, 0)
+            plan = json.loads(
+                (tmp / "capital_routing" / "daily_capital_plan.json").read_text(encoding="utf-8")
+            )
+            self.assertIs(plan["manual_review_only"], True)
+            self.assertIs(plan["live_trading_enabled"], False)
+            self.assertEqual(
+                plan["portfolio_snapshot_id"], "manual-portfolio-example-2026-05-12"
+            )
+            self.assertEqual(
+                plan["market_snapshot_id"], "manual-example-2026-05-12"
+            )
+            # No forbidden artifacts.
+            self.assertFalse((tmp / "execution.plan").exists())
+            self.assertFalse((tmp / "final_decision.json").exists())
 
 
 if __name__ == "__main__":

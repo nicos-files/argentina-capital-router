@@ -135,6 +135,66 @@ def build_daily_report_markdown(plan: DailyCapitalPlan) -> str:
                 lines.append(f"- {warning}")
             lines.append("")
 
+    if plan.portfolio_snapshot_id:
+        meta = dict(plan.metadata or {})
+        portfolio_meta = meta.get("portfolio_snapshot") or {}
+        completeness = ""
+        portfolio_as_of = ""
+        if isinstance(portfolio_meta, dict):
+            completeness = str(portfolio_meta.get("completeness", "") or "")
+            portfolio_as_of = str(portfolio_meta.get("as_of", "") or "")
+
+        lines.append("## Portfolio Snapshot")
+        lines.append("")
+        lines.append(f"- **Snapshot ID:** {plan.portfolio_snapshot_id}")
+        if portfolio_as_of:
+            lines.append(f"- **As of:** {portfolio_as_of}")
+        if plan.portfolio_total_value_usd is not None:
+            lines.append(
+                f"- **Total value (USD):** {float(plan.portfolio_total_value_usd):.2f}"
+            )
+        else:
+            lines.append("- **Total value (USD):** _unavailable_")
+        if completeness:
+            lines.append(f"- **Completeness:** {completeness}")
+        lines.append("")
+
+        if plan.current_bucket_weights:
+            target_pcts = {}
+            if isinstance(portfolio_meta, dict):
+                raw_targets = portfolio_meta.get("target_bucket_weights") or {}
+                if isinstance(raw_targets, dict):
+                    target_pcts = {
+                        str(k): float(v) for k, v in raw_targets.items()
+                    }
+            lines.append("## Current Bucket Weights")
+            lines.append("")
+            lines.append("| Bucket | Current % | Target % | Delta % |")
+            lines.append("| --- | ---: | ---: | ---: |")
+            buckets = sorted(
+                set(plan.current_bucket_weights.keys()) | set(target_pcts.keys())
+            )
+            for bucket in buckets:
+                current = float(plan.current_bucket_weights.get(bucket, 0.0))
+                target = float(target_pcts.get(bucket, 0.0)) if target_pcts else None
+                if target is None:
+                    lines.append(
+                        f"| {bucket} | {current:.2f} | _n/a_ | _n/a_ |"
+                    )
+                else:
+                    delta = target - current
+                    lines.append(
+                        f"| {bucket} | {current:.2f} | {target:.2f} | {delta:+.2f} |"
+                    )
+            lines.append("")
+
+        if plan.portfolio_warnings:
+            lines.append("## Portfolio Warnings")
+            lines.append("")
+            for warning in plan.portfolio_warnings:
+                lines.append(f"- {warning}")
+            lines.append("")
+
     return "\n".join(lines).rstrip() + "\n"
 
 
