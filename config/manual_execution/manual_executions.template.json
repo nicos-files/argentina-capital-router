@@ -1,0 +1,35 @@
+{
+  "schema_version": "1.0",
+  "execution_log_id": "manual-executions-TODO",
+  "as_of": "1970-01-01",
+  "manual_review_only": true,
+  "live_trading_enabled": false,
+  "source": "manual",
+  "broker": "TODO_BROKER",
+  "base_currency": "USD",
+  "notes": "TODO: replace placeholder values before use.",
+  "executions": [
+    {
+      "execution_id": "manual-TODO-001",
+      "plan_id": "TODO_PLAN_ID_OR_DATE",
+      "symbol": "SPY",
+      "asset_class": "cedear",
+      "side": "BUY",
+      "quantity": 1.0,
+      "price": 1.0,
+      "price_currency": "ARS",
+      "fees": 0.0,
+      "fees_currency": "ARS",
+      "executed_at": "1970-01-01",
+      "broker": "TODO_BROKER",
+      "notes": "TODO: replace with real manual execution."
+    }
+  ],
+  "quality": {
+    "completeness": "minimal",
+    "warnings": [
+      "TEMPLATE FILE - placeholder values only. Replace every TODO before using this execution log.",
+      "Manual execution log only. No broker automation."
+    ]
+  }
+}

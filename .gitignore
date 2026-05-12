@@ -52,7 +52,9 @@ __pycache__/
 # user-filled snapshots under snapshots/ are ignored.
 snapshots/market/*.json
 snapshots/portfolio/*.json
+snapshots/manual_execution/*.json
 snapshots/outputs/*
 !snapshots/market/.gitkeep
 !snapshots/portfolio/.gitkeep
+!snapshots/manual_execution/.gitkeep
 !snapshots/outputs/.gitkeep

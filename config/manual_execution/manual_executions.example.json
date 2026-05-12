@@ -1,0 +1,65 @@
+{
+  "schema_version": "1.0",
+  "execution_log_id": "manual-executions-example-2026-05-12",
+  "as_of": "2026-05-12",
+  "manual_review_only": true,
+  "live_trading_enabled": false,
+  "source": "manual",
+  "broker": "IOL_MANUAL",
+  "base_currency": "USD",
+  "notes": "Example only. Illustrates a partial-follow of the daily plan and one extra manual action.",
+  "executions": [
+    {
+      "execution_id": "manual-example-001",
+      "plan_id": "2026-05-12",
+      "symbol": "SPY",
+      "asset_class": "cedear",
+      "side": "BUY",
+      "quantity": 16.0,
+      "price": 10000.0,
+      "price_currency": "ARS",
+      "fees": 800.0,
+      "fees_currency": "ARS",
+      "executed_at": "2026-05-12",
+      "broker": "IOL_MANUAL",
+      "notes": "Example CEDEAR buy approximately matching the recommended SPY allocation."
+    },
+    {
+      "execution_id": "manual-example-002",
+      "plan_id": "2026-05-12",
+      "symbol": "AAPL",
+      "asset_class": "cedear",
+      "side": "BUY",
+      "quantity": 2.0,
+      "price": 12000.0,
+      "price_currency": "ARS",
+      "fees": 150.0,
+      "fees_currency": "ARS",
+      "executed_at": "2026-05-12",
+      "broker": "IOL_MANUAL",
+      "notes": "Example CEDEAR buy below the recommended allocation (PARTIAL follow)."
+    },
+    {
+      "execution_id": "manual-example-003",
+      "plan_id": "2026-05-12",
+      "symbol": "GGAL",
+      "asset_class": "argentina_equity",
+      "side": "BUY",
+      "quantity": 5.0,
+      "price": 5000.0,
+      "price_currency": "ARS",
+      "fees": 100.0,
+      "fees_currency": "ARS",
+      "executed_at": "2026-05-12",
+      "broker": "IOL_MANUAL",
+      "notes": "Example EXTRA action: GGAL is not in the daily plan."
+    }
+  ],
+  "quality": {
+    "completeness": "partial",
+    "warnings": [
+      "Example execution log only. Do not use real broker output here.",
+      "Manual execution log only. No broker automation."
+    ]
+  }
+}
