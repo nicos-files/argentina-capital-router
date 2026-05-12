@@ -1,0 +1,35 @@
+{
+  "schema_version": "1.0",
+  "policy_id": "default_long_term_policy",
+  "base_currency": "USD",
+  "manual_review_only": true,
+  "live_trading_enabled": false,
+  "default_monthly_contribution_usd": 200,
+  "target_allocations": {
+    "core_global_equity_pct": 50,
+    "cedears_single_names_pct": 20,
+    "argentina_equity_pct": 20,
+    "cash_or_short_term_yield_pct": 10
+  },
+  "constraints": {
+    "max_single_position_pct": 15,
+    "max_sector_pct": 35,
+    "min_trade_usd": 10,
+    "rebalance_threshold_pct": 5,
+    "cash_reserve_pct": 5
+  },
+  "risk_buckets": {
+    "low": {
+      "max_total_pct": 80
+    },
+    "medium": {
+      "max_total_pct": 60
+    },
+    "high": {
+      "max_total_pct": 25
+    },
+    "speculative": {
+      "max_total_pct": 10
+    }
+  }
+}

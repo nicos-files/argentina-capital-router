@@ -1,9 +1,7 @@
 from .providers import (
     ALPHAV_PROVIDER,
-    BINANCE_SPOT_PROVIDER,
     YFINANCE_PROVIDER,
     AlphaVantagePriceProvider,
-    BinanceSpotMarketDataProvider,
     MarketDataProvider,
     ProviderHealth,
     YFinancePriceProvider,
@@ -13,10 +11,8 @@ from .providers import (
 
 __all__ = [
     "ALPHAV_PROVIDER",
-    "BINANCE_SPOT_PROVIDER",
     "YFINANCE_PROVIDER",
     "AlphaVantagePriceProvider",
-    "BinanceSpotMarketDataProvider",
     "MarketDataProvider",
     "ProviderHealth",
     "YFinancePriceProvider",

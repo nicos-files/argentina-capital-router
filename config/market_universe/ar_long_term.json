@@ -1,0 +1,222 @@
+{
+  "schema_version": "1.0",
+  "universe_id": "ar_long_term",
+  "description": "Argentina equities + selected CEDEARs for long-term, manual-review-only allocation. Provider mappings must be validated before any real use.",
+  "base_currency": "ARS",
+  "data_frequency": "1d",
+  "execution_mode": "manual_review_only",
+  "live_trading_enabled": false,
+  "paper_trading_enabled": false,
+  "assets": [
+    {
+      "symbol": "GGAL",
+      "display_name": "Grupo Financiero Galicia",
+      "asset_class": "argentina_equity",
+      "currency": "ARS",
+      "market": "BYMA",
+      "enabled": true,
+      "strategy_enabled": false,
+      "long_term_enabled": true,
+      "sector": "financials",
+      "risk_bucket": "medium",
+      "min_notional": 0,
+      "notes": "Local panel lider. Provider mappings must be validated before real use.",
+      "source_symbol_map": {
+        "internal": "GGAL",
+        "byma": "GGAL",
+        "iol": "GGAL",
+        "yfinance": "GGAL.BA",
+        "investing": null
+      }
+    },
+    {
+      "symbol": "YPFD",
+      "display_name": "YPF S.A.",
+      "asset_class": "argentina_equity",
+      "currency": "ARS",
+      "market": "BYMA",
+      "enabled": true,
+      "strategy_enabled": false,
+      "long_term_enabled": true,
+      "sector": "energy",
+      "risk_bucket": "high",
+      "min_notional": 0,
+      "notes": "Energia. Provider mappings must be validated before real use.",
+      "source_symbol_map": {
+        "internal": "YPFD",
+        "byma": "YPFD",
+        "iol": "YPFD",
+        "yfinance": "YPFD.BA",
+        "investing": null
+      }
+    },
+    {
+      "symbol": "PAMP",
+      "display_name": "Pampa Energia",
+      "asset_class": "argentina_equity",
+      "currency": "ARS",
+      "market": "BYMA",
+      "enabled": true,
+      "strategy_enabled": false,
+      "long_term_enabled": true,
+      "sector": "energy",
+      "risk_bucket": "medium",
+      "min_notional": 0,
+      "notes": "Energia/utilities. Provider mappings must be validated before real use.",
+      "source_symbol_map": {
+        "internal": "PAMP",
+        "byma": "PAMP",
+        "iol": "PAMP",
+        "yfinance": "PAMP.BA",
+        "investing": null
+      }
+    },
+    {
+      "symbol": "ALUA",
+      "display_name": "Aluar Aluminio Argentino",
+      "asset_class": "argentina_equity",
+      "currency": "ARS",
+      "market": "BYMA",
+      "enabled": true,
+      "strategy_enabled": false,
+      "long_term_enabled": true,
+      "sector": "materials",
+      "risk_bucket": "medium",
+      "min_notional": 0,
+      "notes": "Materiales. Provider mappings must be validated before real use.",
+      "source_symbol_map": {
+        "internal": "ALUA",
+        "byma": "ALUA",
+        "iol": "ALUA",
+        "yfinance": "ALUA.BA",
+        "investing": null
+      }
+    },
+    {
+      "symbol": "TXAR",
+      "display_name": "Ternium Argentina",
+      "asset_class": "argentina_equity",
+      "currency": "ARS",
+      "market": "BYMA",
+      "enabled": true,
+      "strategy_enabled": false,
+      "long_term_enabled": true,
+      "sector": "materials",
+      "risk_bucket": "medium",
+      "min_notional": 0,
+      "notes": "Acero. Provider mappings must be validated before real use.",
+      "source_symbol_map": {
+        "internal": "TXAR",
+        "byma": "TXAR",
+        "iol": "TXAR",
+        "yfinance": "TXAR.BA",
+        "investing": null
+      }
+    },
+    {
+      "symbol": "COME",
+      "display_name": "Sociedad Comercial del Plata",
+      "asset_class": "argentina_equity",
+      "currency": "ARS",
+      "market": "BYMA",
+      "enabled": true,
+      "strategy_enabled": false,
+      "long_term_enabled": true,
+      "sector": "diversified",
+      "risk_bucket": "speculative",
+      "min_notional": 0,
+      "notes": "Conglomerado. Provider mappings must be validated before real use.",
+      "source_symbol_map": {
+        "internal": "COME",
+        "byma": "COME",
+        "iol": "COME",
+        "yfinance": "COME.BA",
+        "investing": null
+      }
+    },
+    {
+      "symbol": "MELI",
+      "display_name": "MercadoLibre (CEDEAR)",
+      "asset_class": "cedear",
+      "currency": "ARS",
+      "market": "BYMA",
+      "enabled": true,
+      "strategy_enabled": false,
+      "long_term_enabled": true,
+      "sector": "consumer_discretionary",
+      "risk_bucket": "medium",
+      "min_notional": 0,
+      "notes": "CEDEAR MELI. Provider mappings must be validated before real use.",
+      "source_symbol_map": {
+        "internal": "MELI",
+        "byma": "MELI",
+        "iol": "MELI",
+        "yfinance": "MELI.BA",
+        "investing": null
+      }
+    },
+    {
+      "symbol": "AAPL",
+      "display_name": "Apple Inc. (CEDEAR)",
+      "asset_class": "cedear",
+      "currency": "ARS",
+      "market": "BYMA",
+      "enabled": true,
+      "strategy_enabled": false,
+      "long_term_enabled": true,
+      "sector": "technology",
+      "risk_bucket": "low",
+      "min_notional": 0,
+      "notes": "CEDEAR AAPL. Provider mappings must be validated before real use.",
+      "source_symbol_map": {
+        "internal": "AAPL",
+        "byma": "AAPL",
+        "iol": "AAPL",
+        "yfinance": "AAPL.BA",
+        "investing": null
+      }
+    },
+    {
+      "symbol": "KO",
+      "display_name": "Coca-Cola Company (CEDEAR)",
+      "asset_class": "cedear",
+      "currency": "ARS",
+      "market": "BYMA",
+      "enabled": true,
+      "strategy_enabled": false,
+      "long_term_enabled": true,
+      "sector": "consumer_staples",
+      "risk_bucket": "low",
+      "min_notional": 0,
+      "notes": "CEDEAR KO. Provider mappings must be validated before real use.",
+      "source_symbol_map": {
+        "internal": "KO",
+        "byma": "KO",
+        "iol": "KO",
+        "yfinance": "KO.BA",
+        "investing": null
+      }
+    },
+    {
+      "symbol": "SPY",
+      "display_name": "SPDR S&P 500 ETF (CEDEAR)",
+      "asset_class": "cedear",
+      "currency": "ARS",
+      "market": "BYMA",
+      "enabled": true,
+      "strategy_enabled": false,
+      "long_term_enabled": true,
+      "sector": "broad_market",
+      "risk_bucket": "low",
+      "min_notional": 0,
+      "notes": "CEDEAR SPY core global equity proxy. Provider mappings must be validated before real use.",
+      "source_symbol_map": {
+        "internal": "SPY",
+        "byma": "SPY",
+        "iol": "SPY",
+        "yfinance": "SPY.BA",
+        "investing": null
+      }
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "schema_version": "1.0",
+  "policy_id": "default_contribution_routing_policy",
+  "manual_review_only": true,
+  "live_trading_enabled": false,
+  "monthly_long_term_contribution_usd": 200,
+  "must_invest_long_term_by": "end_of_month",
+  "can_temporarily_use_contribution_for_tactical_opportunities": true,
+  "max_tactical_duration_days_for_contribution": 10,
+  "max_allowed_loss_pct_on_contribution": 0,
+  "loss_absorption_order": [
+    "tactical_bucket",
+    "do_not_use_long_term_principal"
+  ],
+  "tactical_bucket": {
+    "enabled": true,
+    "default_available_capital_usd": 0,
+    "max_tactical_allocation_pct_of_total_capital": 30
+  },
+  "opportunity_thresholds": {
+    "min_expected_net_return_pct": 1.5,
+    "min_score_to_route_capital": 70,
+    "max_fx_risk_score": 70,
+    "max_liquidity_risk_score": 60
+  },
+  "blocked_opportunity_types_for_contribution": [
+    "leveraged_trade",
+    "options_trade",
+    "intraday_high_risk",
+    "illiquid_asset",
+    "unknown_exit_date"
+  ]
+}

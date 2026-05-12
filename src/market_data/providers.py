@@ -10,17 +10,13 @@ import requests
 import yfinance as yf
 
 from src.asset_universe import AssetDefinition
-from src.market_data.crypto_symbols import is_crypto_symbol, normalize_crypto_symbol
 
 
 REQUIRED_COLS = ["open", "high", "low", "close", "volume"]
 YFINANCE_PROVIDER = "yfinance"
 ALPHAV_PROVIDER = "alphaV"
-BINANCE_SPOT_PROVIDER = "binance_spot"
 ALPHAV_URL = "https://www.alphavantage.co/query"
-ALPHAV_API_KEY = "TGES6LEV1PPQSVIB"
-BINANCE_SPOT_URL = "https://api.binance.com"
-BINANCE_INTERVALS = {"1m": "1m", "5m": "5m", "15m": "15m", "1h": "1h", "1d": "1d"}
+ALPHAV_API_KEY = ""
 
 
 @dataclass(frozen=True)
@@ -175,121 +171,6 @@ class AlphaVantagePriceProvider(MarketDataProvider):
         return normalized if not normalized.empty else None
 
 
-class BinanceSpotMarketDataProvider(MarketDataProvider):
-    provider_name = BINANCE_SPOT_PROVIDER
-
-    def __init__(self, base_url: str = BINANCE_SPOT_URL, timeout_seconds: int = 10):
-        self.base_url = base_url.rstrip("/")
-        self.timeout_seconds = int(timeout_seconds)
-
-    def supports(self, asset: AssetDefinition) -> bool:
-        return asset.asset_class.upper() == "CRYPTO" or asset.market.upper() == "CRYPTO" or is_crypto_symbol(asset.asset_id)
-
-    def fetch_price_history(self, asset: AssetDefinition, start_date: str) -> Optional[pd.DataFrame]:
-        symbol = normalize_crypto_symbol(asset.asset_id)
-        if not symbol:
-            return None
-        frame = self.get_historical_bars(symbol=symbol, timeframe="1d", start=start_date)
-        if frame.empty:
-            return None
-        return frame
-
-    def get_latest_quote(self, symbol: str) -> dict[str, Any]:
-        normalized = normalize_crypto_symbol(symbol)
-        started = datetime.now(timezone.utc)
-        response = requests.get(
-            f"{self.base_url}/api/v3/ticker/24hr",
-            params={"symbol": normalized},
-            timeout=self.timeout_seconds,
-        )
-        response.raise_for_status()
-        payload = response.json()
-        if not isinstance(payload, dict) or "symbol" not in payload:
-            raise ValueError("invalid binance ticker response")
-        ended = datetime.now(timezone.utc)
-        return {
-            "provider": self.provider_name,
-            "market": "crypto",
-            "symbol": normalized,
-            "timestamp": ended.isoformat(),
-            "is_realtime": True,
-            "is_delayed": False,
-            "last_price": float(payload["lastPrice"]),
-            "bid": float(payload["bidPrice"]) if payload.get("bidPrice") is not None else None,
-            "ask": float(payload["askPrice"]) if payload.get("askPrice") is not None else None,
-            "volume": float(payload.get("volume") or 0.0),
-            "quote_volume": float(payload.get("quoteVolume") or 0.0),
-            "source_latency_seconds": max((ended - started).total_seconds(), 0.0),
-        }
-
-    def get_historical_bars(
-        self,
-        symbol: str,
-        timeframe: str,
-        start: str | None = None,
-        end: str | None = None,
-        limit: int | None = None,
-    ) -> pd.DataFrame:
-        interval = BINANCE_INTERVALS.get(str(timeframe).strip())
-        if not interval:
-            raise ValueError(f"unsupported timeframe: {timeframe}")
-        normalized = normalize_crypto_symbol(symbol)
-        params: dict[str, Any] = {"symbol": normalized, "interval": interval}
-        if start:
-            params["startTime"] = _to_millis(start)
-        if end:
-            params["endTime"] = _to_millis(end)
-        if limit is not None:
-            params["limit"] = int(limit)
-        response = requests.get(f"{self.base_url}/api/v3/klines", params=params, timeout=self.timeout_seconds)
-        response.raise_for_status()
-        payload = response.json()
-        if not isinstance(payload, list):
-            raise ValueError("invalid binance klines response")
-        rows: list[dict[str, Any]] = []
-        for item in payload:
-            if not isinstance(item, list) or len(item) < 6:
-                raise ValueError("malformed kline row")
-            rows.append(
-                {
-                    "date": pd.to_datetime(int(item[0]), unit="ms", utc=True).tz_convert(None),
-                    "ticker": normalized,
-                    "open": float(item[1]),
-                    "high": float(item[2]),
-                    "low": float(item[3]),
-                    "close": float(item[4]),
-                    "volume": float(item[5]),
-                    "provider_symbol": normalized,
-                    "asset_class": "CRYPTO",
-                    "market": "CRYPTO",
-                }
-            )
-        frame = pd.DataFrame(rows)
-        if frame.empty:
-            return frame
-        return frame.sort_values("date").reset_index(drop=True)
-
-    def health_check(self) -> ProviderHealth:
-        try:
-            response = requests.get(f"{self.base_url}/api/v3/ping", timeout=self.timeout_seconds)
-            response.raise_for_status()
-            payload = response.json()
-            healthy = isinstance(payload, dict)
-            return ProviderHealth(
-                provider_name=self.provider_name,
-                status="healthy" if healthy else "unhealthy",
-                message="binance public ping ok" if healthy else "invalid ping response",
-                checked_at_utc=datetime.now(timezone.utc).isoformat(),
-            )
-        except Exception as exc:
-            return ProviderHealth(
-                provider_name=self.provider_name,
-                status="unhealthy",
-                message=str(exc),
-                checked_at_utc=datetime.now(timezone.utc).isoformat(),
-            )
-
-
 def build_default_price_providers() -> list[MarketDataProvider]:
     return [YFinancePriceProvider(), AlphaVantagePriceProvider()]
 
@@ -372,10 +253,3 @@ def _alpha_symbol(asset: AssetDefinition) -> str | None:
     return None
 
 
-def _to_millis(value: str) -> int:
-    timestamp = pd.Timestamp(value)
-    if timestamp.tzinfo is None:
-        timestamp = timestamp.tz_localize("UTC")
-    else:
-        timestamp = timestamp.tz_convert("UTC")
-    return int(timestamp.timestamp() * 1000)
