@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
+from unittest import mock
 
 from src.tools import run_manual_daily_workflow as cli
 
@@ -285,6 +286,115 @@ class RunManualDailyWorkflowTests(unittest.TestCase):
             )
             self.assertEqual(rc, 1)
             self.assertFalse((tmp / "out").exists())
+
+    def test_telegram_dry_run_without_credentials(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp = Path(tmp_dir)
+            rc, out, _ = self._run(
+                [
+                    "--date",
+                    "2026-05-12",
+                    "--market-snapshot",
+                    str(EXAMPLE_MARKET),
+                    "--portfolio-snapshot",
+                    str(EXAMPLE_PORTFOLIO),
+                    "--artifacts-dir",
+                    str(tmp),
+                    "--telegram-dry-run",
+                    "--json",
+                ]
+            )
+            self.assertEqual(rc, 0, msg=out)
+            payload = json.loads(out)
+            self.assertIn("telegram", payload)
+            tg = payload["telegram"]
+            self.assertTrue(tg["ok"])
+            self.assertTrue(tg["dry_run"])
+            self.assertFalse(tg["sent"])
+            self.assertIn("message_preview", tg)
+            self.assertIn(
+                "Argentina Capital Router - 2026-05-12", tg["message_preview"]
+            )
+
+    def test_notify_telegram_with_monkeypatched_send_succeeds(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp = Path(tmp_dir)
+            with mock.patch.object(
+                cli,
+                "send_telegram_message",
+                return_value={
+                    "ok": True,
+                    "dry_run": False,
+                    "sent": True,
+                    "message_length": 123,
+                },
+            ) as send_mock, mock.patch.object(
+                cli,
+                "load_telegram_config",
+                return_value=cli.TelegramConfig(
+                    bot_token="abc:fake", chat_id="111"
+                ),
+            ):
+                rc, out, _ = self._run(
+                    [
+                        "--date",
+                        "2026-05-12",
+                        "--market-snapshot",
+                        str(EXAMPLE_MARKET),
+                        "--portfolio-snapshot",
+                        str(EXAMPLE_PORTFOLIO),
+                        "--artifacts-dir",
+                        str(tmp),
+                        "--notify-telegram",
+                        "--json",
+                    ]
+                )
+            self.assertEqual(rc, 0, msg=out)
+            send_mock.assert_called_once()
+            payload = json.loads(out)
+            self.assertTrue(payload["telegram"]["ok"])
+            self.assertTrue(payload["telegram"]["sent"])
+            self.assertFalse(payload["telegram"]["dry_run"])
+            # Token must never leak in stdout (human or json paths).
+            self.assertNotIn("abc:fake", out)
+
+    def test_notify_telegram_failure_returns_nonzero_but_keeps_artifacts(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp = Path(tmp_dir)
+            with mock.patch.object(
+                cli,
+                "send_telegram_message",
+                side_effect=RuntimeError("Telegram API returned ok=false"),
+            ), mock.patch.object(
+                cli,
+                "load_telegram_config",
+                return_value=cli.TelegramConfig(
+                    bot_token="abc:fake", chat_id="111"
+                ),
+            ):
+                rc, out, _ = self._run(
+                    [
+                        "--date",
+                        "2026-05-12",
+                        "--market-snapshot",
+                        str(EXAMPLE_MARKET),
+                        "--portfolio-snapshot",
+                        str(EXAMPLE_PORTFOLIO),
+                        "--artifacts-dir",
+                        str(tmp),
+                        "--notify-telegram",
+                    ]
+                )
+            self.assertEqual(rc, 1, msg=out)
+            # Daily artifacts must still exist after a Telegram failure.
+            self.assertTrue(
+                (tmp / "capital_routing" / "daily_capital_plan.json").exists()
+            )
+            self.assertTrue((tmp / "reports" / "daily_report.md").exists())
+            self.assertIn("ok=false", out)
+            self.assertNotIn("abc:fake", out)
 
     def test_default_artifacts_dir_uses_snapshots_outputs_date(self) -> None:
         # Verify the resolver without writing to the real repo path.

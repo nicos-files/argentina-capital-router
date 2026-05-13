@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "manual_review_only": true,
+  "live_trading_enabled": false,
+  "enabled": true,
+  "provider": "telegram",
+  "parse_mode": "Markdown",
+  "disable_web_page_preview": true,
+  "message_style": "daily_summary",
+  "notes": [
+    "Example only. No secrets in this file.",
+    "Provide bot token and chat id via TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID env vars,",
+    "or via --telegram-bot-token / --telegram-chat-id CLI flags.",
+    "If you want a local, gitignored copy with the same shape, save it as",
+    "config/notifications/telegram.local.json."
+  ]
+}

@@ -31,8 +31,18 @@ from src.manual_execution.execution_tracker import (
     compare_plan_to_manual_executions,
     write_execution_comparison_artifacts,
 )
+from src.notifications.telegram_notifier import (
+    TelegramConfig,
+    load_telegram_config,
+    send_telegram_message,
+)
 from src.recommendations.models import CapitalPlanRecommendation
 from src.recommendations.writer import dataclass_to_dict
+from src.reports.telegram_summary import (
+    format_daily_plan_telegram_message,
+    load_daily_plan_for_telegram,
+    load_execution_comparison_for_telegram,
+)
 from src.tools import run_daily_capital_plan as plan_cli
 from src.tools import validate_manual_inputs as validate_cli
 
@@ -117,6 +127,47 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         dest="as_json",
         action="store_true",
         help="Emit a machine-readable JSON summary to stdout.",
+    )
+
+    # Telegram notification flags (all optional; default behavior unchanged).
+    parser.add_argument(
+        "--notify-telegram",
+        action="store_true",
+        help=(
+            "After a successful workflow run, send a Telegram notification "
+            "summarising the plan. Requires TELEGRAM_BOT_TOKEN and "
+            "TELEGRAM_CHAT_ID (or --telegram-bot-token / --telegram-chat-id)."
+        ),
+    )
+    parser.add_argument(
+        "--telegram-dry-run",
+        action="store_true",
+        help=(
+            "Format the Telegram message and include the preview in the "
+            "workflow summary, but do not send. No credentials required."
+        ),
+    )
+    parser.add_argument(
+        "--telegram-bot-token",
+        default=None,
+        help=(
+            "Telegram bot token. Prefer the TELEGRAM_BOT_TOKEN environment "
+            "variable. Never commit this value."
+        ),
+    )
+    parser.add_argument(
+        "--telegram-chat-id",
+        default=None,
+        help=(
+            "Telegram chat id. Prefer the TELEGRAM_CHAT_ID environment "
+            "variable. Never commit this value."
+        ),
+    )
+    parser.add_argument(
+        "--telegram-max-allocations",
+        type=int,
+        default=8,
+        help="Maximum number of long-term allocations to include in the message.",
     )
     return parser
 
@@ -231,6 +282,55 @@ def _run_execution_comparison(
     return summary, artifacts
 
 
+def _run_telegram_notification(
+    args: argparse.Namespace,
+    plan_path: Path,
+    execution_comparison_path: Optional[Path],
+) -> dict[str, Any]:
+    """Build (and optionally send) the Telegram daily summary.
+
+    Returns a dict with at minimum ``ok``, ``dry_run``, ``sent``,
+    ``message_length`` and (in dry-run mode) ``message_preview``. Never
+    surfaces the bot token. Raises ``RuntimeError`` on send failure, which
+    the caller maps to a non-zero exit code.
+    """
+    plan_payload = load_daily_plan_for_telegram(plan_path)
+    comparison_payload = load_execution_comparison_for_telegram(
+        execution_comparison_path
+    )
+    message = format_daily_plan_telegram_message(
+        plan_payload,
+        execution_comparison=comparison_payload,
+        max_allocations=int(args.telegram_max_allocations),
+    )
+
+    dry_run = bool(args.telegram_dry_run) or not bool(args.notify_telegram)
+    if dry_run:
+        result = send_telegram_message(
+            TelegramConfig(bot_token="dry-run", chat_id="dry-run"),
+            message,
+            dry_run=True,
+        )
+        return {
+            "ok": True,
+            "dry_run": True,
+            "sent": False,
+            "message_length": int(result.get("message_length", len(message))),
+            "message_preview": result.get("message_preview", message),
+        }
+
+    config = load_telegram_config(
+        bot_token=args.telegram_bot_token, chat_id=args.telegram_chat_id
+    )
+    result = send_telegram_message(config, message)
+    return {
+        "ok": True,
+        "dry_run": False,
+        "sent": bool(result.get("sent", True)),
+        "message_length": int(result.get("message_length", len(message))),
+    }
+
+
 # ---------------------------------------------------------------------------
 # Reporting
 # ---------------------------------------------------------------------------
@@ -294,6 +394,20 @@ def _print_human_summary(report: dict[str, Any]) -> None:
         )
     else:
         print("  execution_comparison: skipped (no --executions provided)")
+    telegram = report.get("telegram")
+    if telegram is not None:
+        print("  telegram:")
+        print(f"    ok: {telegram.get('ok')}")
+        print(f"    dry_run: {telegram.get('dry_run')}")
+        print(f"    sent: {telegram.get('sent')}")
+        print(f"    message_length: {telegram.get('message_length')}")
+        if telegram.get("error"):
+            print(f"    error: {telegram['error']}")
+        elif telegram.get("dry_run") and telegram.get("message_preview"):
+            print("    --- message preview ---")
+            preview = telegram["message_preview"]
+            print(preview, end="" if preview.endswith("\n") else "\n")
+            print("    --- end preview ---")
     print("  artifacts:")
     for name, path in report["artifacts"].items():
         print(f"    - {name}: {path}")
@@ -312,6 +426,7 @@ def _build_report(
     comparison: Optional[ExecutionComparisonSummary],
     comparison_paths: dict[str, str],
     status: str,
+    telegram: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
     report: dict[str, Any] = {
         "manual_review_only": True,
@@ -381,6 +496,9 @@ def _build_report(
         report["follow_rate_pct"] = float(comparison.follow_rate_pct)
     else:
         report["execution_comparison"] = None
+
+    if telegram is not None:
+        report["telegram"] = telegram
 
     return report
 
@@ -459,6 +577,31 @@ def run(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
             report["comparison_error"] = str(exc)
             return _EXIT_FAILURE, report
 
+    telegram_result: Optional[dict[str, Any]] = None
+    telegram_failed = False
+    if args.notify_telegram or args.telegram_dry_run:
+        comparison_path: Optional[Path] = None
+        if comparison_paths:
+            raw = comparison_paths.get("manual_execution_comparison")
+            comparison_path = Path(raw) if raw else None
+        try:
+            telegram_result = _run_telegram_notification(
+                args,
+                plan_path=plan_paths["daily_capital_plan"],
+                execution_comparison_path=comparison_path,
+            )
+        except (RuntimeError, ValueError) as exc:
+            # Daily artifacts have already been written; surface the failure
+            # but keep them. The bot token is never echoed by the notifier so
+            # str(exc) is safe to include here.
+            telegram_result = {
+                "ok": False,
+                "dry_run": bool(args.telegram_dry_run),
+                "sent": False,
+                "error": str(exc),
+            }
+            telegram_failed = True
+
     report = _build_report(
         target_date=target_date,
         artifacts_dir=artifacts_dir,
@@ -469,9 +612,11 @@ def run(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
         plan_paths=plan_paths,
         comparison=comparison,
         comparison_paths=comparison_paths,
-        status="ok",
+        status="telegram_failed" if telegram_failed else "ok",
+        telegram=telegram_result,
     )
-    return _EXIT_OK, report
+    exit_code = _EXIT_FAILURE if telegram_failed else _EXIT_OK
+    return exit_code, report
 
 
 def main(argv: list[str] | None = None) -> int:

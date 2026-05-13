@@ -86,6 +86,37 @@ When `--executions` is provided the workflow also produces:
 
 The summary then includes follow rate and matched/partial/missed/extra counts.
 
+## Optional: Telegram notifications
+
+The workflow can also send a concise Telegram summary after a successful
+run. See [`docs/telegram_notifications.md`](telegram_notifications.md) for
+the full setup; the short version:
+
+- Dry-run alongside the workflow (no credentials, no network):
+
+  ```bash
+  python3 -m src.tools.run_manual_daily_workflow \
+    --date 2026-05-12 \
+    --market-snapshot snapshots/market/2026-05-12.json \
+    --portfolio-snapshot snapshots/portfolio/2026-05-12.json \
+    --artifacts-dir snapshots/outputs/2026-05-12 \
+    --telegram-dry-run
+  ```
+
+- Real send (after exporting `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`):
+
+  ```bash
+  python3 -m src.tools.run_manual_daily_workflow \
+    --date 2026-05-12 \
+    --market-snapshot snapshots/market/2026-05-12.json \
+    --portfolio-snapshot snapshots/portfolio/2026-05-12.json \
+    --artifacts-dir snapshots/outputs/2026-05-12 \
+    --notify-telegram
+  ```
+
+If both flags are passed, dry-run wins. A Telegram failure returns exit
+code 1 but the daily artifacts are kept.
+
 ## Useful flags
 
 - **`--date YYYY-MM-DD`** sets the as-of date. Defaults to today. Also used
