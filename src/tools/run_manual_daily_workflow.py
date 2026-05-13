@@ -194,11 +194,13 @@ def _validation_args(
     portfolio_snapshot: str,
     *,
     strict: bool,
+    expected_date: Optional[str] = None,
 ) -> Namespace:
     return Namespace(
         market_snapshot=market_snapshot,
         portfolio_snapshot=portfolio_snapshot,
         strict=strict,
+        expected_date=expected_date,
         as_json=False,
     )
 
@@ -245,11 +247,16 @@ def _plan_args(
 
 def _run_validation(
     args: argparse.Namespace,
+    target_date: str,
 ) -> tuple[int, dict[str, Any]]:
+    # Pass the workflow's date through as the expected as-of date so the
+    # quality module can flag (and, in strict mode, reject) snapshots that
+    # do not match the day being processed.
     val_args = _validation_args(
         args.market_snapshot,
         args.portfolio_snapshot,
         strict=bool(args.strict_inputs),
+        expected_date=target_date,
     )
     return validate_cli.run(val_args)
 
@@ -344,6 +351,13 @@ def _print_human_summary(report: dict[str, Any]) -> None:
     print(f"  market_snapshot: {report['market_snapshot']}")
     print(f"  portfolio_snapshot: {report['portfolio_snapshot']}")
     print(f"  input_validation_status: {report['input_validation_status']}")
+    if "input_quality_ok" in report:
+        print(
+            "  input_quality: "
+            f"ok={report['input_quality_ok']} "
+            f"errors={report['input_quality_errors_count']} "
+            f"warnings={report['input_quality_warnings_count']}"
+        )
     if report.get("strict_failures"):
         print(f"  strict_failures ({len(report['strict_failures'])}):")
         for f in report["strict_failures"]:
@@ -448,6 +462,15 @@ def _build_report(
         report["input_validation_errors"] = list(
             validation_summary["errors"]
         )
+    quality = validation_summary.get("quality")
+    if isinstance(quality, dict):
+        report["input_quality_ok"] = bool(quality.get("ok", True))
+        report["input_quality_errors_count"] = int(
+            quality.get("errors_count", 0)
+        )
+        report["input_quality_warnings_count"] = int(
+            quality.get("warnings_count", 0)
+        )
 
     if recommendation is not None:
         plan = recommendation.plan
@@ -512,7 +535,7 @@ def run(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
     target_date = _resolve_date(args.date)
     artifacts_dir = _resolve_artifacts_dir(args.artifacts_dir, target_date)
 
-    validation_rc, validation_summary = _run_validation(args)
+    validation_rc, validation_summary = _run_validation(args, target_date)
     if validation_rc != _EXIT_OK:
         # When validation fails, do not advance to plan/comparison; that
         # matches the underlying CLIs' guarantees and keeps the workflow

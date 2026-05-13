@@ -94,8 +94,58 @@ In `--strict` mode the validator fails with exit code 1 if:
 - any portfolio position has no price in the market snapshot,
 - or any ARS amount cannot be converted to USD (missing `USDARS_MEP`).
 
-Add `--json` to either invocation to get a machine-readable summary instead
-of human-friendly text.
+### Input quality checks
+
+The validator also runs a set of semantic *quality checks* on top of the
+schema validation. They are deliberately permissive by default (warnings
+only) and become hard errors under `--strict`. The checks cover:
+
+- **TODO/placeholder markers.** Strings containing `TODO`, `placeholder`,
+  `template file`, or `replace` (case-insensitive) anywhere in the JSON.
+- **Placeholder numerics.** Market quote prices or FX rates equal to
+  `1.0`; rate inputs that are all zero; portfolio positions whose
+  quantity and average cost are both exactly `1.0`; cash amounts equal to
+  `1.0`.
+- **Snapshot date mismatch.** Only when `--expected-date YYYY-MM-DD` is
+  passed.
+- **Unknown symbols.** Symbols that are not in the configured
+  Argentina/CEDEAR universe (`config/data_inputs/ar_long_term_universe.json`).
+- **Missing required FX.** Any ARS-denominated quote or position requires
+  a `USDARS_MEP` entry in `fx_rates`.
+- **Missing position price.** When both snapshots are provided, every
+  portfolio position must have a matching market quote.
+- **Incomplete snapshot.** `quality.completeness != "complete"`.
+
+In `--strict` mode the following warning codes are promoted to errors and
+cause exit code 1: `TODO_MARKER`, `PLACEHOLDER_VALUE`,
+`SNAPSHOT_DATE_MISMATCH`, `UNKNOWN_SYMBOL`, `INCOMPLETE_SNAPSHOT`,
+`MISSING_REQUIRED_FX`, `MISSING_POSITION_PRICE`.
+
+**Before running the daily plan with real money on the line**, make sure
+your snapshots:
+
+- have `quality.completeness` set to `"complete"`,
+- have no `TODO`/`placeholder`/`replace` strings left over,
+- have real (non-1.0) prices/FX/quantities/costs,
+- include `USDARS_MEP` if you hold ARS cash or ARS-priced positions,
+- have a matching market quote for every portfolio position,
+- and use only symbols from the configured universe.
+
+Example strict invocation:
+
+```bash
+python -m src.tools.validate_manual_inputs \
+  --market-snapshot snapshots/market/2026-05-12.json \
+  --portfolio-snapshot snapshots/portfolio/2026-05-12.json \
+  --expected-date 2026-05-12 \
+  --strict
+```
+
+Add `--json` to either invocation to get a machine-readable summary
+instead of human-friendly text. The JSON includes a `quality` block with
+`ok`, `strict`, `errors_count`, `warnings_count`, and a list of issues
+(each with `severity`, `code`, `message`, `path`, and optionally
+`symbol`).
 
 ## 4. Run the daily capital plan
 

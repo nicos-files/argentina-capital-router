@@ -20,6 +20,10 @@ import sys
 from pathlib import Path
 from typing import Any, Optional
 
+from src.market_data.ar_symbols import (
+    ArgentinaAsset,
+    load_ar_long_term_universe,
+)
 from src.market_data.manual_snapshot import (
     ManualMarketSnapshot,
     load_manual_market_snapshot,
@@ -35,6 +39,12 @@ from src.portfolio.portfolio_valuation import (
     MISSING_PRICE,
     PortfolioValuation,
     value_portfolio,
+)
+from src.quality.input_quality import (
+    InputQualityReport,
+    combine_quality_reports,
+    validate_market_snapshot_quality,
+    validate_portfolio_snapshot_quality,
 )
 
 
@@ -70,6 +80,15 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--expected-date",
+        default=None,
+        help=(
+            "Optional expected as-of date (YYYY-MM-DD). When provided, the "
+            "quality checks fail if snapshot dates differ from this value "
+            "and ``--strict`` is set."
+        ),
+    )
+    parser.add_argument(
         "--json",
         dest="as_json",
         action="store_true",
@@ -78,26 +97,65 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _load_market(path: Path) -> tuple[Optional[ManualMarketSnapshot], list[str]]:
-    errors: list[str] = []
+def _read_raw_json(path: Path) -> tuple[Optional[dict[str, Any]], list[str]]:
+    """Read a JSON file as a raw dict without applying loader invariants.
+
+    The quality checks need to scan the raw shape for TODO markers and
+    placeholder values before the schema loaders normalize the data.
+    """
+    try:
+        with path.open("r", encoding="utf-8") as fh:
+            data = json.load(fh)
+    except FileNotFoundError as exc:
+        return None, [f"snapshot file not found: {exc}"]
+    except json.JSONDecodeError as exc:
+        return None, [f"{path}: invalid JSON: {exc}"]
+    if not isinstance(data, dict):
+        return None, [f"{path}: top-level value must be a JSON object"]
+    return data, []
+
+
+def _load_market(
+    path: Path,
+) -> tuple[Optional[ManualMarketSnapshot], Optional[dict[str, Any]], list[str]]:
+    raw, raw_errors = _read_raw_json(path)
+    if raw_errors:
+        return None, raw, [f"market snapshot invalid: {err}" for err in raw_errors]
     try:
         snapshot = load_manual_market_snapshot(path)
     except (ValueError, FileNotFoundError) as exc:
-        errors.append(f"market snapshot invalid: {exc}")
-        return None, errors
-    return snapshot, errors
+        return None, raw, [f"market snapshot invalid: {exc}"]
+    return snapshot, raw, []
 
 
 def _load_portfolio(
     path: Path,
-) -> tuple[Optional[ManualPortfolioSnapshot], list[str]]:
-    errors: list[str] = []
+) -> tuple[
+    Optional[ManualPortfolioSnapshot], Optional[dict[str, Any]], list[str]
+]:
+    raw, raw_errors = _read_raw_json(path)
+    if raw_errors:
+        return None, raw, [
+            f"portfolio snapshot invalid: {err}" for err in raw_errors
+        ]
     try:
         snapshot = load_manual_portfolio_snapshot(path)
     except (ValueError, FileNotFoundError) as exc:
-        errors.append(f"portfolio snapshot invalid: {exc}")
-        return None, errors
-    return snapshot, errors
+        return None, raw, [f"portfolio snapshot invalid: {exc}"]
+    return snapshot, raw, []
+
+
+def _safe_load_universe() -> list[ArgentinaAsset]:
+    """Load the configured universe; return [] if it cannot be loaded.
+
+    A missing or invalid universe file is not a hard failure for this CLI
+    (the symbol coverage check just becomes a no-op). The default path is
+    already used by the rest of the codebase.
+    """
+    try:
+        return load_ar_long_term_universe()
+    except (ValueError, FileNotFoundError):  # pragma: no cover - defensive
+        return []
 
 
 def _valuation_summary(valuation: PortfolioValuation) -> dict[str, Any]:
@@ -253,6 +311,23 @@ def _print_text_report(summary: dict[str, Any]) -> None:
             print(f"  warnings ({len(valuation['warnings'])}):")
             for w in valuation["warnings"]:
                 print(f"    - {w}")
+    quality = summary.get("quality")
+    if isinstance(quality, dict):
+        print("Input quality:")
+        print(f"  ok: {quality.get('ok')}")
+        print(f"  strict: {quality.get('strict')}")
+        print(f"  errors: {quality.get('errors_count', 0)}")
+        print(f"  warnings: {quality.get('warnings_count', 0)}")
+        print(f"  infos: {quality.get('infos_count', 0)}")
+        issues = quality.get("issues") or []
+        if issues:
+            print(f"  issues ({len(issues)}):")
+            for issue in issues:
+                severity = issue.get("severity", "?")
+                code = issue.get("code", "?")
+                path = issue.get("path") or "-"
+                message = issue.get("message", "")
+                print(f"    - [{severity}] {code} ({path}): {message}")
     if summary.get("strict_failures"):
         print("Strict-mode failures:")
         for f in summary["strict_failures"]:
@@ -277,11 +352,14 @@ def run(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
         "live_trading_enabled": False,
         "strict": bool(args.strict),
     }
+    if args.expected_date:
+        summary["expected_date"] = str(args.expected_date)
 
     market: Optional[ManualMarketSnapshot] = None
+    raw_market: Optional[dict[str, Any]] = None
     if args.market_snapshot:
         market_path = Path(args.market_snapshot).expanduser()
-        market, m_errors = _load_market(market_path)
+        market, raw_market, m_errors = _load_market(market_path)
         errors.extend(m_errors)
         market_entry: dict[str, Any] = {
             "path": str(market_path),
@@ -292,9 +370,10 @@ def run(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
         summary["market"] = market_entry
 
     portfolio: Optional[ManualPortfolioSnapshot] = None
+    raw_portfolio: Optional[dict[str, Any]] = None
     if args.portfolio_snapshot:
         portfolio_path = Path(args.portfolio_snapshot).expanduser()
-        portfolio, p_errors = _load_portfolio(portfolio_path)
+        portfolio, raw_portfolio, p_errors = _load_portfolio(portfolio_path)
         errors.extend(p_errors)
         portfolio_entry: dict[str, Any] = {
             "path": str(portfolio_path),
@@ -314,13 +393,41 @@ def run(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
         summary["errors"] = errors
         return _EXIT_INVALID, summary
 
+    # Quality checks (TODO markers, placeholder values, date mismatches,
+    # unknown symbols, missing FX, missing position prices, completeness).
+    universe = _safe_load_universe() if (market or portfolio) else []
+    reports: list[InputQualityReport] = []
+    if market is not None:
+        reports.append(
+            validate_market_snapshot_quality(
+                raw_market_data=raw_market,
+                market_snapshot=market,
+                expected_date=args.expected_date,
+                universe_assets=universe,
+                strict=False,
+            )
+        )
+    if portfolio is not None:
+        reports.append(
+            validate_portfolio_snapshot_quality(
+                raw_portfolio_data=raw_portfolio,
+                portfolio_snapshot=portfolio,
+                expected_date=args.expected_date,
+                market_snapshot=market,
+                universe_assets=universe,
+                strict=False,
+            )
+        )
+    quality_report = combine_quality_reports(*reports, strict=bool(args.strict))
+    summary["quality"] = quality_report.to_dict()
+
     strict_failures: list[str] = []
     if args.strict:
         strict_failures = _evaluate_strict(market, portfolio, valuation)
         summary["strict_failures"] = strict_failures
 
     summary["status"] = "valid"
-    if strict_failures:
+    if strict_failures or (args.strict and not quality_report.ok):
         summary["status"] = "strict_failed"
         return _EXIT_INVALID, summary
     return _EXIT_OK, summary

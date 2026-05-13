@@ -135,6 +135,58 @@ code 1 but the daily artifacts are kept.
 - **`--json`** prints a machine-readable summary instead of the human
   report.
 
+### Input quality checks
+
+The orchestrator runs the validator from
+[`docs/manual_input_workflow.md`](manual_input_workflow.md) under the hood
+and threads `--date` through as the expected snapshot as-of date. The
+checks are intentionally **permissive by default** (warnings only) so a
+freshly generated template still produces a daily plan you can inspect,
+but they catch common mistakes you don't want to ship to a real run:
+
+- TODO/placeholder strings (`TODO`, `placeholder`, `template file`,
+  `replace`) anywhere in the JSON,
+- prices/FX rates equal to `1.0`, all-zero rate inputs, position
+  quantity+average_cost both `1.0`, cash equal to `1.0`,
+- snapshot date mismatch against `--date`,
+- symbols outside the configured Argentina/CEDEAR universe,
+- ARS amounts without `USDARS_MEP`,
+- portfolio positions without a matching market quote,
+- `quality.completeness != "complete"`.
+
+In `--strict-inputs` mode those become hard errors and the workflow
+refuses to write any artifact. Before a real run, make sure your
+snapshots:
+
+- have `quality.completeness = "complete"` and an empty `quality.warnings`,
+- have no leftover TODO/placeholder strings,
+- have real (non-1.0) prices/FX/quantities/costs,
+- include `USDARS_MEP` if you hold any ARS cash or ARS-priced positions,
+- match `--date` in their `as_of` fields,
+- have a matching market quote for every portfolio position.
+
+Example commands:
+
+```bash
+python -m src.tools.validate_manual_inputs \
+  --market-snapshot snapshots/market/2026-05-12.json \
+  --portfolio-snapshot snapshots/portfolio/2026-05-12.json \
+  --expected-date 2026-05-12 \
+  --strict
+```
+
+```bash
+python -m src.tools.run_manual_daily_workflow \
+  --date 2026-05-12 \
+  --market-snapshot snapshots/market/2026-05-12.json \
+  --portfolio-snapshot snapshots/portfolio/2026-05-12.json \
+  --strict-inputs
+```
+
+The workflow's JSON summary includes `input_quality_ok`,
+`input_quality_errors_count`, and `input_quality_warnings_count` when
+quality checks ran.
+
 ## Exit codes
 
 | Code | Meaning |

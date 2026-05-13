@@ -36,10 +36,25 @@ TEMPLATE_PORTFOLIO = (
 )
 
 
+def _scrub_notes(obj):
+    """Recursively clear ``notes`` strings to avoid tripping TODO checks."""
+    if isinstance(obj, dict):
+        for key, value in list(obj.items()):
+            if key == "notes" and isinstance(value, str):
+                obj[key] = ""
+            else:
+                _scrub_notes(value)
+    elif isinstance(obj, list):
+        for item in obj:
+            _scrub_notes(item)
+    return obj
+
+
 def _write_complete_snapshots(tmp: Path) -> tuple[Path, Path]:
     """Return (market, portfolio) snapshots tweaked to pass --strict-inputs."""
     market_raw = json.loads(EXAMPLE_MARKET.read_text(encoding="utf-8"))
     market_raw["quality"] = {"warnings": [], "completeness": "complete"}
+    _scrub_notes(market_raw)
     market_path = tmp / "market_complete.json"
     market_path.write_text(json.dumps(market_raw), encoding="utf-8")
 
@@ -49,6 +64,7 @@ def _write_complete_snapshots(tmp: Path) -> tuple[Path, Path]:
         p for p in portfolio_raw["positions"] if p["symbol"] in {"SPY", "GGAL"}
     ]
     portfolio_raw["quality"] = {"warnings": [], "completeness": "complete"}
+    _scrub_notes(portfolio_raw)
     portfolio_path = tmp / "portfolio_complete.json"
     portfolio_path.write_text(json.dumps(portfolio_raw), encoding="utf-8")
 
@@ -197,6 +213,113 @@ class RunManualDailyWorkflowTests(unittest.TestCase):
             self.assertFalse(
                 (tmp / "capital_routing" / "daily_capital_plan.json").exists()
             )
+
+    def test_strict_inputs_fails_on_template_todos(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp = Path(tmp_dir)
+            rc, out, _ = self._run(
+                [
+                    "--date",
+                    "2026-05-12",
+                    "--market-snapshot",
+                    str(TEMPLATE_MARKET),
+                    "--portfolio-snapshot",
+                    str(TEMPLATE_PORTFOLIO),
+                    "--artifacts-dir",
+                    str(tmp),
+                    "--strict-inputs",
+                    "--json",
+                ]
+            )
+            self.assertEqual(rc, 1, msg=out)
+            payload = json.loads(out)
+            self.assertEqual(payload["input_validation_status"], "strict_failed")
+            self.assertFalse(payload["input_quality_ok"])
+            self.assertGreater(payload["input_quality_errors_count"], 0)
+            self.assertFalse(
+                (tmp / "capital_routing" / "daily_capital_plan.json").exists()
+            )
+
+    def test_strict_inputs_fails_on_date_mismatch_before_writing_plan(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp = Path(tmp_dir)
+            market, portfolio = _write_complete_snapshots(tmp)
+            artifacts = tmp / "artifacts"
+            rc, out, _ = self._run(
+                [
+                    # Snapshots are dated 2026-05-12; ask for 2026-05-13.
+                    "--date",
+                    "2026-05-13",
+                    "--market-snapshot",
+                    str(market),
+                    "--portfolio-snapshot",
+                    str(portfolio),
+                    "--artifacts-dir",
+                    str(artifacts),
+                    "--strict-inputs",
+                ]
+            )
+            self.assertEqual(rc, 1, msg=out)
+            self.assertIn("strict_failed", out)
+            # No daily plan should be written when strict validation fails on
+            # the date mismatch.
+            self.assertFalse(
+                (
+                    artifacts / "capital_routing" / "daily_capital_plan.json"
+                ).exists()
+            )
+
+    def test_non_strict_template_still_runs_with_quality_warnings(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp = Path(tmp_dir)
+            rc, out, _ = self._run(
+                [
+                    "--date",
+                    "2026-05-12",
+                    "--market-snapshot",
+                    str(TEMPLATE_MARKET),
+                    "--portfolio-snapshot",
+                    str(TEMPLATE_PORTFOLIO),
+                    "--artifacts-dir",
+                    str(tmp),
+                    "--json",
+                ]
+            )
+            self.assertEqual(rc, 0, msg=out)
+            payload = json.loads(out)
+            self.assertEqual(payload["input_validation_status"], "valid")
+            # Quality reports the template's placeholder values as warnings
+            # but does not block the workflow.
+            self.assertIn("input_quality_ok", payload)
+            self.assertTrue(payload["input_quality_ok"])
+            self.assertGreater(payload["input_quality_warnings_count"], 0)
+            self.assertTrue(
+                (tmp / "capital_routing" / "daily_capital_plan.json").exists()
+            )
+
+    def test_json_includes_input_quality_counts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp = Path(tmp_dir)
+            rc, out, _ = self._run(
+                [
+                    "--date",
+                    "2026-05-12",
+                    "--market-snapshot",
+                    str(EXAMPLE_MARKET),
+                    "--portfolio-snapshot",
+                    str(EXAMPLE_PORTFOLIO),
+                    "--artifacts-dir",
+                    str(tmp),
+                    "--json",
+                ]
+            )
+            self.assertEqual(rc, 0, msg=out)
+            payload = json.loads(out)
+            self.assertIn("input_quality_ok", payload)
+            self.assertIn("input_quality_errors_count", payload)
+            self.assertIn("input_quality_warnings_count", payload)
 
     def test_strict_inputs_succeeds_with_complete_snapshots(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
