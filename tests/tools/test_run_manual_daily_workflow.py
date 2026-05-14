@@ -308,6 +308,90 @@ class RunManualDailyWorkflowTests(unittest.TestCase):
             # No real bot token must be required for the dry-run path.
             self.assertNotIn("error:", out.lower())
 
+    def test_empty_portfolio_summary_artifact_is_written(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp = Path(tmp_dir)
+            rc, _, _ = self._run(
+                [
+                    "--date",
+                    "2026-05-12",
+                    "--market-snapshot",
+                    str(EXAMPLE_MARKET),
+                    "--empty-portfolio",
+                    "--artifacts-dir",
+                    str(tmp),
+                ]
+            )
+            self.assertEqual(rc, 0)
+            summary_path = (
+                tmp / "capital_routing" / "daily_recommendation_summary.json"
+            )
+            self.assertTrue(summary_path.exists())
+            summary = json.loads(summary_path.read_text(encoding="utf-8"))
+
+            # Safety flags
+            self.assertIs(summary["manual_review_only"], True)
+            self.assertIs(summary["live_trading_enabled"], False)
+            self.assertIs(summary["no_orders"], True)
+            self.assertIn("not orders", summary["note"].lower())
+
+            # Empty-portfolio clarity
+            self.assertIs(summary["is_empty_portfolio"], True)
+            self.assertEqual(summary["portfolio_total_value_usd"], 0.0)
+            self.assertEqual(
+                summary["data_quality"]["portfolio_snapshot"]["source"],
+                "generated_empty",
+            )
+
+            # Schema sanity
+            self.assertEqual(summary["date"], "2026-05-12")
+            self.assertEqual(summary["monthly_contribution_usd"], 200.0)
+            self.assertIsInstance(summary["recommended_allocations"], list)
+            self.assertGreater(len(summary["recommended_allocations"]), 0)
+            for alloc in summary["recommended_allocations"]:
+                for key in ("symbol", "asset_class", "bucket", "allocation_usd"):
+                    self.assertIn(key, alloc)
+
+            # generated_files manifest references at least the report
+            # and the summary file itself.
+            files_blob = " ".join(summary["generated_files"])
+            self.assertIn("daily_report.md", files_blob)
+            self.assertIn("daily_recommendation_summary.json", files_blob)
+
+    def test_empty_portfolio_report_mentions_synthetic_portfolio(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp = Path(tmp_dir)
+            rc, _, _ = self._run(
+                [
+                    "--date",
+                    "2026-05-12",
+                    "--market-snapshot",
+                    str(EXAMPLE_MARKET),
+                    "--empty-portfolio",
+                    "--artifacts-dir",
+                    str(tmp),
+                ]
+            )
+            self.assertEqual(rc, 0)
+            report = (tmp / "reports" / "daily_report.md").read_text(
+                encoding="utf-8"
+            )
+            # Empty-portfolio section
+            self.assertIn("## Empty Portfolio", report)
+            self.assertIn("Portfolio is currently empty", report)
+            self.assertIn("synthetic", report.lower())
+            self.assertIn("No orders were placed", report)
+            # Manual checklist + not-orders banner
+            self.assertIn("## Manual Execution Checklist", report)
+            self.assertIn("These are not orders", report)
+            # Hard policy / safety flags surfaced
+            self.assertIn("manual_review_only", report)
+            self.assertIn("live_trading_enabled", report)
+            self.assertIn("no_orders", report)
+            # Constraints visible
+            self.assertIn("## Constraints", report)
+            self.assertIn("Minimum trade size", report)
+
     def test_empty_portfolio_no_forbidden_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp = Path(tmp_dir)

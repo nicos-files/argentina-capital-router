@@ -38,9 +38,13 @@ class RunDailyCapitalPlanTests(unittest.TestCase):
             plan_path = tmp / "capital_routing" / "daily_capital_plan.json"
             contrib_path = tmp / "long_term" / "monthly_contribution_plan.json"
             report_path = tmp / "reports" / "daily_report.md"
+            summary_path = (
+                tmp / "capital_routing" / "daily_recommendation_summary.json"
+            )
             self.assertTrue(plan_path.exists())
             self.assertTrue(contrib_path.exists())
             self.assertTrue(report_path.exists())
+            self.assertTrue(summary_path.exists())
 
             plan = json.loads(plan_path.read_text(encoding="utf-8"))
             self.assertIs(plan["manual_review_only"], True)
@@ -51,12 +55,26 @@ class RunDailyCapitalPlanTests(unittest.TestCase):
             )
             self.assertGreater(len(plan["long_term_allocations"]), 0)
 
+            # The summary is the stable downstream contract.
+            summary = json.loads(summary_path.read_text(encoding="utf-8"))
+            self.assertIs(summary["manual_review_only"], True)
+            self.assertIs(summary["live_trading_enabled"], False)
+            self.assertIs(summary["no_orders"], True)
+            self.assertEqual(summary["date"], "2026-05-12")
+            self.assertEqual(
+                summary["recommendation_type"], "INVEST_DIRECT_LONG_TERM"
+            )
+            # is_empty_portfolio True here because no portfolio was passed.
+            self.assertIs(summary["is_empty_portfolio"], True)
+
             # No execution.plan / final_decision.json artifacts must exist.
             self.assertFalse((tmp / "execution.plan").exists())
             self.assertFalse((tmp / "final_decision.json").exists())
 
             report = report_path.read_text(encoding="utf-8")
             self.assertIn("MANUAL REVIEW ONLY", report)
+            self.assertIn("## Manual Execution Checklist", report)
+            self.assertIn("These are not orders", report)
             self.assertNotIn("crypto", report.lower())
 
     def test_simulate_carry_routes_to_tactical(self) -> None:
@@ -229,6 +247,21 @@ class RunDailyCapitalPlanWithPortfolioTests(unittest.TestCase):
             report = (tmp / "reports" / "daily_report.md").read_text(encoding="utf-8")
             self.assertIn("## Portfolio Snapshot", report)
             self.assertIn("manual-portfolio-example-2026-05-12", report)
+            # Populated portfolio: report must NOT contain the empty-portfolio
+            # callout, and the summary must mark is_empty_portfolio False.
+            self.assertNotIn("## Empty Portfolio", report)
+            summary = json.loads(
+                (
+                    tmp
+                    / "capital_routing"
+                    / "daily_recommendation_summary.json"
+                ).read_text(encoding="utf-8")
+            )
+            self.assertIs(summary["is_empty_portfolio"], False)
+            self.assertEqual(
+                summary["data_quality"]["portfolio_snapshot"]["snapshot_id"],
+                "manual-portfolio-example-2026-05-12",
+            )
 
     def test_portfolio_with_market_snapshot(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

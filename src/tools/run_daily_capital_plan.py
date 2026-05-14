@@ -47,6 +47,7 @@ from src.recommendations.models import (
     DailyCapitalPlan,
     LongTermContributionPlan,
 )
+from src.recommendations.summary import build_daily_recommendation_summary
 from src.recommendations.writer import (
     dataclass_to_dict,
     write_json_artifact,
@@ -282,6 +283,16 @@ def build_plan(args: argparse.Namespace) -> CapitalPlanRecommendation:
         "universe_size": len(assets),
         "opportunity_simulated": bool(args.simulate_carry),
         "opportunity_from_snapshot": bool(args.carry_from_snapshot),
+        "constraints": {
+            "min_trade_usd": float(
+                long_term_policy.constraints.get("min_trade_usd", 0.0)
+            ),
+            "max_allocations_per_contribution": int(
+                long_term_policy.constraints.get(
+                    "max_allocations_per_contribution", 0
+                )
+            ),
+        },
     }
     if snapshot is not None:
         metadata["market_snapshot"] = {
@@ -374,6 +385,7 @@ def _write_artifacts(
     daily_capital_plan_path = capital_dir / "daily_capital_plan.json"
     contribution_plan_path = long_term_dir / "monthly_contribution_plan.json"
     report_path = reports_dir / "daily_report.md"
+    summary_path = capital_dir / "daily_recommendation_summary.json"
 
     write_json_artifact(daily_capital_plan_path, recommendation.plan)
     write_json_artifact(contribution_plan_path, recommendation.long_term_plan)
@@ -382,10 +394,25 @@ def _write_artifacts(
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text(report_markdown, encoding="utf-8")
 
+    # The downstream summary lists every artifact written for this run,
+    # including itself. Keep paths relative so the file is portable across
+    # machines and so any consumer treats it as a manifest, not a pointer.
+    generated_files = [
+        str(daily_capital_plan_path.relative_to(artifacts_dir)),
+        str(contribution_plan_path.relative_to(artifacts_dir)),
+        str(report_path.relative_to(artifacts_dir)),
+        str(summary_path.relative_to(artifacts_dir)),
+    ]
+    summary = build_daily_recommendation_summary(
+        recommendation.plan, generated_files=generated_files
+    )
+    write_json_artifact(summary_path, summary)
+
     return {
         "daily_capital_plan": daily_capital_plan_path,
         "monthly_contribution_plan": contribution_plan_path,
         "daily_report": report_path,
+        "daily_recommendation_summary": summary_path,
     }
 
 
