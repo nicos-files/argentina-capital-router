@@ -77,7 +77,23 @@ def _market_snapshot(
             )
         }
     if rates is None:
-        rates = {}
+        # Populate the three "expected" rate keys so the default helper
+        # produces a genuinely complete snapshot. Tests that want to
+        # exercise the MISSING_RATE_INPUT path should pass ``rates={}``
+        # explicitly.
+        rates = {
+            "money_market_monthly_pct": RateInput(
+                key="money_market_monthly_pct", value=2.5, as_of=as_of
+            ),
+            "caucion_monthly_pct": RateInput(
+                key="caucion_monthly_pct", value=2.8, as_of=as_of
+            ),
+            "expected_fx_devaluation_monthly_pct": RateInput(
+                key="expected_fx_devaluation_monthly_pct",
+                value=1.5,
+                as_of=as_of,
+            ),
+        }
     return ManualMarketSnapshot(
         schema_version="1.0",
         snapshot_id="test",
@@ -392,6 +408,133 @@ class MarketSnapshotQualityTests(unittest.TestCase):
         self.assertTrue(report.ok)
         self.assertEqual(report.warnings_count, 1)
         self.assertEqual(report.issues[0].code, "INCOMPLETE_SNAPSHOT")
+
+    # ------------------------------------------------------------------
+    # FX / rate input quality
+    # ------------------------------------------------------------------
+
+    def test_fx_rate_equal_to_one_is_flagged_as_placeholder(self) -> None:
+        report = validate_market_snapshot_quality(
+            raw_market_data={
+                "fx_rates": {
+                    "USDARS_MEP": {"rate": 1.0},
+                }
+            },
+            market_snapshot=_market_snapshot(),
+            strict=False,
+        )
+        codes = [i.code for i in report.issues]
+        self.assertIn("PLACEHOLDER_VALUE", codes)
+
+    def test_fx_rate_below_or_equal_zero_is_rejected_at_load(self) -> None:
+        # The loader refuses to parse fx_rates with rate <= 0 so invalid
+        # values cannot reach validate_market_snapshot_quality. Document
+        # that behaviour here as a regression guard.
+        import json
+        import tempfile
+        from pathlib import Path
+
+        from src.market_data.manual_snapshot import load_manual_market_snapshot
+
+        def _write_and_load(rate: float) -> None:
+            with tempfile.TemporaryDirectory() as tmp:
+                p = Path(tmp) / "m.json"
+                p.write_text(
+                    json.dumps(
+                        {
+                            "schema_version": "1.0",
+                            "snapshot_id": "bad",
+                            "as_of": "2026-05-12",
+                            "source": "manual",
+                            "manual_review_only": True,
+                            "live_trading_enabled": False,
+                            "data_frequency": "1d",
+                            "quotes": [],
+                            "fx_rates": {
+                                "USDARS_MEP": {
+                                    "rate": rate,
+                                    "as_of": "2026-05-12",
+                                }
+                            },
+                            "rates": {},
+                            "completeness": "complete",
+                        }
+                    )
+                )
+                load_manual_market_snapshot(p)
+
+        with self.assertRaises(ValueError):
+            _write_and_load(0.0)
+        with self.assertRaises(ValueError):
+            _write_and_load(-1.0)
+
+    def test_all_zero_rate_inputs_flagged_as_placeholder(self) -> None:
+        report = validate_market_snapshot_quality(
+            raw_market_data={
+                "rates": {
+                    "money_market_monthly_pct": {"value": 0.0},
+                    "caucion_monthly_pct": {"value": 0.0},
+                    "expected_fx_devaluation_monthly_pct": {"value": 0.0},
+                }
+            },
+            market_snapshot=_market_snapshot(),
+            strict=False,
+        )
+        codes = [i.code for i in report.issues]
+        self.assertIn("PLACEHOLDER_VALUE", codes)
+
+    def test_missing_expected_rate_inputs_each_flagged(self) -> None:
+        # Empty rates -> one MISSING_RATE_INPUT per expected key.
+        market = _market_snapshot(rates={})
+        report = validate_market_snapshot_quality(
+            raw_market_data=None,
+            market_snapshot=market,
+            strict=False,
+        )
+        missing_rate_issues = [
+            i for i in report.issues if i.code == "MISSING_RATE_INPUT"
+        ]
+        self.assertEqual(len(missing_rate_issues), 3)
+        missing_paths = sorted(i.path for i in missing_rate_issues)
+        self.assertEqual(
+            missing_paths,
+            [
+                "rates.caucion_monthly_pct",
+                "rates.expected_fx_devaluation_monthly_pct",
+                "rates.money_market_monthly_pct",
+            ],
+        )
+
+    def test_missing_rate_input_is_not_promoted_to_error_in_strict_mode(
+        self,
+    ) -> None:
+        # Strict mode promotes INCOMPLETE_SNAPSHOT to ERROR (since the
+        # snapshot is partial), but the per-key MISSING_RATE_INPUT stays
+        # a WARNING so the user still sees which keys are missing.
+        market = _market_snapshot(rates={}, completeness="complete")
+        report = validate_market_snapshot_quality(
+            raw_market_data=None,
+            market_snapshot=market,
+            strict=True,
+        )
+        codes_by_severity = {
+            (i.severity, i.code) for i in report.issues
+        }
+        self.assertIn(("WARNING", "MISSING_RATE_INPUT"), codes_by_severity)
+        for sev, code in codes_by_severity:
+            if code == "MISSING_RATE_INPUT":
+                self.assertEqual(sev, "WARNING")
+
+    def test_valid_fx_and_rates_pass_strict_quality(self) -> None:
+        report = validate_market_snapshot_quality(
+            raw_market_data={"quotes": [], "fx_rates": {}, "rates": {}},
+            market_snapshot=_market_snapshot(),
+            expected_date="2026-05-12",
+            universe_assets=_universe(),
+            strict=True,
+        )
+        self.assertTrue(report.ok)
+        self.assertEqual(report.errors_count, 0)
 
 
 class PortfolioSnapshotQualityTests(unittest.TestCase):

@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -221,8 +222,33 @@ def _coerce_positive(
         as_float = float(value)
     except (TypeError, ValueError) as exc:  # pragma: no cover - argparse coerces
         raise ValueError(f"{field_name} must be numeric") from exc
+    if math.isnan(as_float) or math.isinf(as_float):
+        raise ValueError(f"{field_name} must be finite (got {as_float})")
     if as_float <= 0:
         raise ValueError(f"{field_name} must be > 0 (got {as_float})")
+    return as_float
+
+
+def _coerce_finite(
+    value: Optional[float],
+    *,
+    field_name: str,
+) -> Optional[float]:
+    """Validate a percentage / rate input.
+
+    Percentage rates (e.g. ``--money-market-monthly-pct``) can legitimately
+    be ``0`` (a calm market) or even negative (deflation / appreciation),
+    so we only enforce that the input is numeric and finite. We reject
+    NaN and Inf so they cannot slip into the snapshot via ``float("nan")``.
+    """
+    if value is None:
+        return None
+    try:
+        as_float = float(value)
+    except (TypeError, ValueError) as exc:  # pragma: no cover - argparse coerces
+        raise ValueError(f"{field_name} must be numeric") from exc
+    if math.isnan(as_float) or math.isinf(as_float):
+        raise ValueError(f"{field_name} must be finite (got {as_float})")
     return as_float
 
 
@@ -307,6 +333,10 @@ class BuildResult:
     snapshot_path: Path
     quotes_requested: int
     quotes_loaded: int
+    fx_pairs_requested: int
+    fx_rates_loaded: int
+    rate_keys_requested: int
+    rates_loaded: int
     missing_symbols: tuple[str, ...]
     missing_fx_pairs: tuple[str, ...]
     missing_rate_keys: tuple[str, ...]
@@ -324,6 +354,15 @@ def _summarize(result: BuildResult, *, provider: str) -> dict[str, Any]:
         "snapshot_path": str(result.snapshot_path),
         "quotes_requested": int(result.quotes_requested),
         "quotes_loaded": int(result.quotes_loaded),
+        # Explicit FX / rate counts make it trivial for downstream callers
+        # (and humans reading --json output) to spot a partial snapshot at
+        # a glance without diffing the missing_* arrays.
+        "fx_pairs_requested": int(result.fx_pairs_requested),
+        "fx_rates_loaded": int(result.fx_rates_loaded),
+        "fx_rates_missing": len(result.missing_fx_pairs),
+        "rate_keys_requested": int(result.rate_keys_requested),
+        "rates_loaded": int(result.rates_loaded),
+        "rates_missing": len(result.missing_rate_keys),
         "missing_symbols": list(result.missing_symbols),
         "missing_fx_pairs": list(result.missing_fx_pairs),
         "missing_rate_keys": list(result.missing_rate_keys),
@@ -359,20 +398,16 @@ def run(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
         usdars_official = _coerce_positive(
             args.usdars_official, field_name="--usdars-official"
         )
-        mmm_pct = (
-            None
-            if args.money_market_monthly_pct is None
-            else float(args.money_market_monthly_pct)
+        mmm_pct = _coerce_finite(
+            args.money_market_monthly_pct,
+            field_name="--money-market-monthly-pct",
         )
-        caucion_pct = (
-            None
-            if args.caucion_monthly_pct is None
-            else float(args.caucion_monthly_pct)
+        caucion_pct = _coerce_finite(
+            args.caucion_monthly_pct, field_name="--caucion-monthly-pct"
         )
-        fx_dev_pct = (
-            None
-            if args.expected_fx_devaluation_monthly_pct is None
-            else float(args.expected_fx_devaluation_monthly_pct)
+        fx_dev_pct = _coerce_finite(
+            args.expected_fx_devaluation_monthly_pct,
+            field_name="--expected-fx-devaluation-monthly-pct",
         )
     except ValueError as exc:
         return _EXIT_USAGE, {
@@ -496,6 +531,15 @@ def run(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
 
     # Replace the chain-built snapshot with one that has the overridden
     # FX/rates and recomputed completeness.
+    #
+    # NOTE: build-tool annotations (chain breadcrumbs, CLI override
+    # notices, "still missing FX rates" advisories) live in the build
+    # summary and the daily report, not in the snapshot's own
+    # ``warnings`` field. The snapshot's ``warnings`` field is reserved
+    # for quality issues raised by the *editor of the snapshot*, and is
+    # counted as a strict-validation failure by ``validate_manual_inputs``.
+    # Persisting build noise there would make every auto-built snapshot
+    # fail strict mode and defeat the slice goal.
     from src.market_data.manual_snapshot import ManualMarketSnapshot
 
     snapshot = ManualMarketSnapshot(
@@ -509,7 +553,7 @@ def run(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
         quotes=dict(assembled.snapshot.quotes),
         fx_rates=fx_rates,
         rates=rates,
-        warnings=tuple(warnings_list),
+        warnings=(),
         completeness=completeness,
     )
 
@@ -560,6 +604,10 @@ def run(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
         snapshot_path=output_path,
         quotes_requested=len(request.symbols),
         quotes_loaded=len(snapshot.quotes),
+        fx_pairs_requested=len(request.fx_pairs),
+        fx_rates_loaded=len(snapshot.fx_rates),
+        rate_keys_requested=len(request.rate_keys),
+        rates_loaded=len(snapshot.rates),
         missing_symbols=assembled.missing_symbols,
         missing_fx_pairs=missing_fx_pairs,
         missing_rate_keys=missing_rate_keys,
@@ -588,6 +636,16 @@ def _print_human_summary(summary: dict[str, Any]) -> None:
     print(f"  snapshot_path: {summary['snapshot_path']}")
     print(f"  quotes_requested: {summary['quotes_requested']}")
     print(f"  quotes_loaded: {summary['quotes_loaded']}")
+    print(
+        f"  fx_rates_loaded: {summary.get('fx_rates_loaded', 0)}/"
+        f"{summary.get('fx_pairs_requested', 0)} "
+        f"(missing={summary.get('fx_rates_missing', 0)})"
+    )
+    print(
+        f"  rates_loaded: {summary.get('rates_loaded', 0)}/"
+        f"{summary.get('rate_keys_requested', 0)} "
+        f"(missing={summary.get('rates_missing', 0)})"
+    )
     print(f"  completeness: {summary['completeness']}")
     missing_syms = summary.get("missing_symbols") or []
     if missing_syms:

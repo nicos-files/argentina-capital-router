@@ -137,12 +137,60 @@ Useful flags:
 - `--provider {static-example,yahoo}` - which provider to use. See the
   table above. `static-example` is fully offline; `yahoo` is best-effort
   and may produce a partial snapshot.
-- `--usdars-mep`, `--usdars-ccl`, `--usdars-official` - override FX rates.
+- `--usdars-mep`, `--usdars-ccl`, `--usdars-official` - FX rate inputs.
   When supplied they win over whatever the chain returned and are
-  tagged `provider=cli_override` inside the snapshot.
+  tagged `provider=cli_override` inside the snapshot. **Each must be
+  strictly positive and finite**; the CLI rejects `0`, negative values,
+  `nan`, and `inf` with exit code `2` (usage error).
 - `--money-market-monthly-pct`, `--caucion-monthly-pct`,
-  `--expected-fx-devaluation-monthly-pct` - override rate inputs.
+  `--expected-fx-devaluation-monthly-pct` - rate inputs. These are
+  validated for finiteness only; `0` and negative percentages are
+  accepted because a calm money market (0%) or a slightly negative
+  expected devaluation is legitimate. `nan` / `inf` are rejected.
 - `--json` - emit a machine-readable summary on stdout.
+
+### Summary fields you will see
+
+When you pass `--json` (or run without it, for the human summary), the
+build tool reports:
+
+- `quotes_loaded` / `quotes_requested` - how many universe symbols got a
+  price.
+- `fx_rates_loaded` / `fx_pairs_requested` / `fx_rates_missing` -
+  coverage of the three canonical FX pairs (`USDARS_MEP`,
+  `USDARS_CCL`, `USDARS_OFFICIAL`).
+- `rates_loaded` / `rate_keys_requested` / `rates_missing` - coverage of
+  the three canonical rate inputs (`money_market_monthly_pct`,
+  `caucion_monthly_pct`, `expected_fx_devaluation_monthly_pct`).
+- `missing_fx_pairs` / `missing_rate_keys` - explicit names of any
+  expected input that the chain could not serve and that no CLI flag
+  filled in. Pair these with the matching `--usdars-*` / `--*-pct`
+  flags to make the snapshot complete.
+- `provider_sources` - per-item provider attribution. CLI-supplied
+  values appear as `provider=cli_override` so you can tell at a glance
+  which inputs you typed in and which came from the chain.
+
+### Expected FX and rate inputs
+
+The build tool considers these inputs *expected* for a complete market
+snapshot:
+
+| Kind | Key | CLI flag |
+| --- | --- | --- |
+| FX | `USDARS_MEP` | `--usdars-mep` |
+| FX | `USDARS_CCL` | `--usdars-ccl` |
+| FX | `USDARS_OFFICIAL` | `--usdars-official` |
+| Rate | `money_market_monthly_pct` | `--money-market-monthly-pct` |
+| Rate | `caucion_monthly_pct` | `--caucion-monthly-pct` |
+| Rate | `expected_fx_devaluation_monthly_pct` | `--expected-fx-devaluation-monthly-pct` |
+
+If any of these is missing after the chain runs and after CLI overrides
+are applied, the snapshot's `quality.completeness` drops to `partial`
+(or `minimal`) and the summary lists the missing keys under
+`missing_fx_pairs` / `missing_rate_keys`. Strict validation
+(`validate_manual_inputs --strict`,
+`run_manual_daily_workflow --strict-inputs`) then refuses to proceed
+until you fill the gap.
 
 ## Output
 
@@ -152,8 +200,12 @@ schema the rest of the product already understands:
 - `manual_review_only=true`, `live_trading_enabled=false`.
 - `quotes` keyed by symbol.
 - `fx_rates`, `rates` keyed by pair / key.
-- `quality.warnings` includes any chain warnings and a note that
-  overridden FX/rate values came from CLI flags.
+- `quality.warnings` is intentionally **empty** on auto-built snapshots.
+  Build-tool annotations (chain breadcrumbs, "fx overridden via CLI",
+  "still missing FX rates") are surfaced in the build summary and the
+  daily report instead. The snapshot's own `warnings` field is reserved
+  for quality issues raised by the editor of a manually authored
+  snapshot, and strict validation counts non-empty entries as failures.
 - `quality.completeness` is `complete` only when every requested item
   was served (by either the chain or a CLI override). Otherwise the
   field is `partial` or `minimal`, exactly as the input-quality

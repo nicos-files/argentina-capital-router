@@ -47,6 +47,11 @@ _VALID_SEVERITIES = frozenset(
 )
 
 # Codes whose WARNING-severity issues are promoted to ERROR in strict mode.
+#
+# ``MISSING_RATE_INPUT`` is intentionally *not* promoted: a missing rate
+# input usually triggers the broader ``INCOMPLETE_SNAPSHOT`` warning,
+# which already fails strict mode. ``MISSING_RATE_INPUT`` exists only to
+# give the user a more specific message about *which* rate is missing.
 _STRICT_PROMOTABLE_CODES = frozenset(
     {
         "TODO_MARKER",
@@ -57,6 +62,16 @@ _STRICT_PROMOTABLE_CODES = frozenset(
         "MISSING_REQUIRED_FX",
         "MISSING_POSITION_PRICE",
     }
+)
+
+# Rate-input keys that the workflow considers "expected" for a fully
+# specified market snapshot. Missing any of these surfaces a
+# ``MISSING_RATE_INPUT`` warning. The list is intentionally short and
+# does not include exotic / optional keys.
+_EXPECTED_RATE_KEYS: tuple[str, ...] = (
+    "money_market_monthly_pct",
+    "caucion_monthly_pct",
+    "expected_fx_devaluation_monthly_pct",
 )
 
 # Case-insensitive markers in string fields that indicate a placeholder.
@@ -458,6 +473,24 @@ def validate_market_snapshot_quality(
                         "is not in fx_rates"
                     ),
                     path="fx_rates.USDARS_MEP",
+                )
+            )
+
+    # Targeted per-key warnings for expected rate inputs. The broader
+    # ``INCOMPLETE_SNAPSHOT`` warning already fails strict mode when any
+    # rate is missing; this one just makes the missing key obvious in the
+    # report instead of forcing the reader to diff completeness manually.
+    for rate_key in _EXPECTED_RATE_KEYS:
+        if rate_key not in market_snapshot.rates:
+            issues.append(
+                InputQualityIssue(
+                    severity=SEVERITY_WARNING,
+                    code="MISSING_RATE_INPUT",
+                    message=(
+                        f"expected rate input {rate_key!r} is missing; "
+                        "supply it via --*-pct CLI flags or a manual snapshot"
+                    ),
+                    path=f"rates.{rate_key}",
                 )
             )
 

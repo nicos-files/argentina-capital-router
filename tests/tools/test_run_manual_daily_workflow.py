@@ -740,6 +740,105 @@ class RunManualDailyWorkflowTests(unittest.TestCase):
             self.assertIn("ok=false", out)
             self.assertNotIn("abc:fake", out)
 
+    # ------------------------------------------------------------------
+    # End-to-end regression: build_market_snapshot + --empty-portfolio
+    # ------------------------------------------------------------------
+
+    def test_build_then_empty_portfolio_workflow_end_to_end(self) -> None:
+        """static-example + explicit FX/rates + --empty-portfolio must
+        produce a complete-strict-valid market snapshot and run the
+        downstream workflow without forbidden artifacts.
+
+        This is the slice's named regression scenario.
+        """
+        from src.tools import build_market_snapshot as build_cli
+        from src.tools import validate_manual_inputs as validate_cli
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp = Path(tmp_dir)
+            market_path = tmp / "market" / "2026-05-12.json"
+
+            # 1. Build the snapshot through the CLI with explicit FX/rates.
+            build_rc = build_cli.main(
+                [
+                    "--date",
+                    "2026-05-12",
+                    "--provider",
+                    "static-example",
+                    "--usdars-mep",
+                    "1200",
+                    "--usdars-ccl",
+                    "1220",
+                    "--usdars-official",
+                    "1000",
+                    "--money-market-monthly-pct",
+                    "2.5",
+                    "--caucion-monthly-pct",
+                    "2.8",
+                    "--expected-fx-devaluation-monthly-pct",
+                    "1.5",
+                    "--out",
+                    str(market_path),
+                    "--json",
+                ]
+            )
+            self.assertEqual(build_rc, 0)
+            self.assertTrue(market_path.exists())
+
+            # 2. Strict validation of the generated snapshot must pass.
+            validate_rc = validate_cli.main(
+                [
+                    "--market-snapshot",
+                    str(market_path),
+                    "--expected-date",
+                    "2026-05-12",
+                    "--strict",
+                ]
+            )
+            self.assertEqual(validate_rc, 0)
+
+            # 3. Run the daily workflow with --empty-portfolio.
+            rc, out, _ = self._run(
+                [
+                    "--date",
+                    "2026-05-12",
+                    "--market-snapshot",
+                    str(market_path),
+                    "--empty-portfolio",
+                    "--artifacts-dir",
+                    str(tmp / "outputs"),
+                ]
+            )
+            self.assertEqual(rc, 0, msg=out)
+
+            # 4. The expected output artifacts must exist.
+            self.assertTrue(
+                (
+                    tmp
+                    / "outputs"
+                    / "capital_routing"
+                    / "daily_capital_plan.json"
+                ).exists()
+            )
+            self.assertTrue(
+                (tmp / "outputs" / "reports" / "daily_report.md").exists()
+            )
+            self.assertTrue(
+                (
+                    tmp
+                    / "outputs"
+                    / "capital_routing"
+                    / "daily_recommendation_summary.json"
+                ).exists()
+            )
+
+            # 5. Forbidden artifacts must NOT be present anywhere under
+            #    the temporary tree.
+            forbidden = list(tmp.rglob("execution.plan")) + list(
+                tmp.rglob("final_decision.json")
+            )
+            self.assertEqual(forbidden, [])
+
     def test_default_artifacts_dir_uses_snapshots_outputs_date(self) -> None:
         # Verify the resolver without writing to the real repo path.
         from src.tools.run_manual_daily_workflow import _resolve_artifacts_dir

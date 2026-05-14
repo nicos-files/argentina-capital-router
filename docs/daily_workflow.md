@@ -54,9 +54,48 @@ python3 -m src.tools.build_market_snapshot \
   --out snapshots/market/2026-05-12.json
 ```
 
-The only supported provider today is `static-example` (offline,
-deterministic, **not real market data**). Review every value before
-treating the resulting snapshot as authoritative.
+Supported providers today: `static-example` (offline, deterministic,
+**not real market data**) and `yahoo` (free, no-auth, delayed,
+best-effort). Review every value before treating the resulting snapshot
+as authoritative.
+
+**FX / rate input rules** (see
+[`docs/automated_market_snapshot.md`](automated_market_snapshot.md) for
+the full table):
+
+- `--usdars-mep`, `--usdars-ccl`, `--usdars-official` must each be
+  strictly positive and finite. The CLI rejects `0`, negatives, `nan`
+  and `inf` with a usage error.
+- `--money-market-monthly-pct`, `--caucion-monthly-pct`,
+  `--expected-fx-devaluation-monthly-pct` accept `0` and negative
+  values (a calm money market is `0%`; a slightly negative expected
+  devaluation is legitimate) but reject `nan` / `inf`.
+- CLI-supplied FX and rate values are tagged `provider=cli_override`
+  inside the snapshot so the audit trail stays clear.
+- Missing FX / rate inputs do not crash the build; they downgrade
+  `quality.completeness` to `partial` and are listed under
+  `missing_fx_pairs` / `missing_rate_keys` in the summary. Strict
+  validation then refuses to proceed.
+
+Recommended pattern for a complete-coverage day:
+
+```bash
+python3 -m src.tools.build_market_snapshot \
+  --date 2026-05-12 \
+  --provider static-example \
+  --usdars-mep 1200 \
+  --usdars-ccl 1220 \
+  --usdars-official 1000 \
+  --money-market-monthly-pct 2.5 \
+  --caucion-monthly-pct 2.8 \
+  --expected-fx-devaluation-monthly-pct 1.5 \
+  --out snapshots/market/2026-05-12.json
+
+python3 -m src.tools.validate_manual_inputs \
+  --market-snapshot snapshots/market/2026-05-12.json \
+  --expected-date 2026-05-12 \
+  --strict
+```
 
 ### Running without current holdings
 

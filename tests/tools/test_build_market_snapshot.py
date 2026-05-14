@@ -472,6 +472,261 @@ class BuildMarketSnapshotCliTests(unittest.TestCase):
             payload = json.loads(output)
             self.assertEqual(payload["status"], "usage_error")
 
+    # ------------------------------------------------------------------
+    # FX / rate CLI validation
+    # ------------------------------------------------------------------
+
+    def _usage_error(self, extra_args: list[str]) -> dict:
+        with tempfile.TemporaryDirectory() as tmp_dir, _NetworkBlocker():
+            rc, output = _run(
+                [
+                    "--date",
+                    "2026-05-12",
+                    "--provider",
+                    "static-example",
+                    "--out",
+                    str(Path(tmp_dir) / "m.json"),
+                    "--json",
+                    *extra_args,
+                ]
+            )
+        self.assertEqual(rc, 2, msg=output)
+        payload = json.loads(output)
+        self.assertEqual(payload["status"], "usage_error")
+        return payload
+
+    def test_zero_fx_rate_returns_usage_error(self) -> None:
+        payload = self._usage_error(["--usdars-mep", "0"])
+        self.assertTrue(
+            any("--usdars-mep" in e and "> 0" in e for e in payload["errors"]),
+            msg=payload["errors"],
+        )
+
+    def test_zero_fx_ccl_returns_usage_error(self) -> None:
+        self._usage_error(["--usdars-ccl", "0"])
+
+    def test_zero_fx_official_returns_usage_error(self) -> None:
+        self._usage_error(["--usdars-official", "0"])
+
+    def test_negative_fx_ccl_returns_usage_error(self) -> None:
+        self._usage_error(["--usdars-ccl", "-50"])
+
+    def test_nan_fx_returns_usage_error(self) -> None:
+        payload = self._usage_error(["--usdars-mep", "nan"])
+        self.assertTrue(
+            any("finite" in e for e in payload["errors"]),
+            msg=payload["errors"],
+        )
+
+    def test_inf_fx_returns_usage_error(self) -> None:
+        self._usage_error(["--usdars-mep", "inf"])
+
+    def test_non_numeric_fx_exits_via_argparse(self) -> None:
+        # argparse rejects ``--usdars-mep notanumber`` before our code
+        # runs. The CLI surfaces this as exit code 2 with no JSON body.
+        with tempfile.TemporaryDirectory() as tmp_dir, _NetworkBlocker():
+            rc, _ = _run(
+                [
+                    "--date",
+                    "2026-05-12",
+                    "--usdars-mep",
+                    "notanumber",
+                    "--out",
+                    str(Path(tmp_dir) / "m.json"),
+                ]
+            )
+        self.assertEqual(rc, 2)
+
+    def test_nan_pct_rate_returns_usage_error(self) -> None:
+        payload = self._usage_error(["--money-market-monthly-pct", "nan"])
+        self.assertTrue(
+            any("finite" in e for e in payload["errors"]),
+            msg=payload["errors"],
+        )
+
+    def test_zero_percentage_rate_is_accepted(self) -> None:
+        # Zero is a legitimate value for a percentage rate (e.g. a calm
+        # money market), so this must NOT be a usage error.
+        with tempfile.TemporaryDirectory() as tmp_dir, _NetworkBlocker():
+            out = Path(tmp_dir) / "m.json"
+            rc, output = _run(
+                [
+                    "--date",
+                    "2026-05-12",
+                    "--provider",
+                    "static-example",
+                    "--usdars-mep",
+                    "1200",
+                    "--usdars-ccl",
+                    "1220",
+                    "--usdars-official",
+                    "1000",
+                    "--money-market-monthly-pct",
+                    "0",
+                    "--caucion-monthly-pct",
+                    "0",
+                    "--expected-fx-devaluation-monthly-pct",
+                    "0",
+                    "--out",
+                    str(out),
+                    "--json",
+                ]
+            )
+        self.assertEqual(rc, 0, msg=output)
+
+    # ------------------------------------------------------------------
+    # FX / rate summary counts
+    # ------------------------------------------------------------------
+
+    def test_summary_includes_fx_and_rate_counts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir, _NetworkBlocker():
+            out = Path(tmp_dir) / "m.json"
+            rc, output = _run(
+                [
+                    "--date",
+                    "2026-05-12",
+                    "--provider",
+                    "static-example",
+                    "--usdars-mep",
+                    "1200",
+                    "--usdars-ccl",
+                    "1220",
+                    "--usdars-official",
+                    "1000",
+                    "--money-market-monthly-pct",
+                    "2.5",
+                    "--caucion-monthly-pct",
+                    "2.8",
+                    "--expected-fx-devaluation-monthly-pct",
+                    "1.5",
+                    "--out",
+                    str(out),
+                    "--json",
+                ]
+            )
+        self.assertEqual(rc, 0, msg=output)
+        payload = json.loads(output)
+        # Explicit counts must be present and consistent.
+        self.assertEqual(payload["fx_pairs_requested"], 3)
+        self.assertEqual(payload["fx_rates_loaded"], 3)
+        self.assertEqual(payload["fx_rates_missing"], 0)
+        self.assertEqual(payload["rate_keys_requested"], 3)
+        self.assertEqual(payload["rates_loaded"], 3)
+        self.assertEqual(payload["rates_missing"], 0)
+        self.assertEqual(payload["completeness"], "complete")
+
+    def test_summary_shows_missing_fx_and_rate_counts(self) -> None:
+        # No FX/rate flags supplied -> all 3+3 are missing from the chain
+        # since static-example serves them only if requested AND in its
+        # pool. They ARE in the pool, so they actually come back -> the
+        # only way to force "missing" is to use a provider that does not
+        # serve FX/rates at all. Use a stub provider that returns nothing.
+
+        class _QuotesOnlyProvider(MarketSnapshotProvider):
+            """Mimic a quotes-only provider (like Yahoo): serves at least
+            one symbol but no FX rates and no rate inputs.
+            """
+
+            name = "quotes_only_stub"
+
+            def fetch(self, request: MarketSnapshotRequest) -> PartialMarketSnapshot:
+                # Serve a single quote so the snapshot is "partial",
+                # not "minimal" - that is the realistic Yahoo-like shape.
+                quotes: dict[str, ManualQuote] = {}
+                if request.symbols:
+                    sym = request.symbols[0]
+                    quotes[sym] = ManualQuote(
+                        symbol=sym,
+                        asset_class="cedear",
+                        price=100.0,
+                        currency="ARS",
+                        as_of=request.as_of,
+                        provider=self.name,
+                        delayed=True,
+                    )
+                return PartialMarketSnapshot(
+                    provider_name=self.name, quotes=quotes
+                )
+
+            def health_check(self) -> dict[str, Any]:
+                return {
+                    "provider": self.name,
+                    "ok": True,
+                    "network_required": False,
+                    "requires_api_key": False,
+                }
+
+        with tempfile.TemporaryDirectory() as tmp_dir, _NetworkBlocker():
+            out = Path(tmp_dir) / "m.json"
+            with patch.object(
+                cli,
+                "_build_providers",
+                return_value=[_QuotesOnlyProvider()],
+            ):
+                rc, output = _run(
+                    [
+                        "--date",
+                        "2026-05-12",
+                        "--provider",
+                        "static-example",
+                        "--out",
+                        str(out),
+                        "--json",
+                    ]
+                )
+            self.assertEqual(rc, 0, msg=output)
+            payload = json.loads(output)
+        self.assertEqual(payload["fx_pairs_requested"], 3)
+        self.assertEqual(payload["fx_rates_loaded"], 0)
+        self.assertEqual(payload["fx_rates_missing"], 3)
+        self.assertEqual(payload["rate_keys_requested"], 3)
+        self.assertEqual(payload["rates_loaded"], 0)
+        self.assertEqual(payload["rates_missing"], 3)
+        self.assertEqual(payload["completeness"], "partial")
+        # Explicit list mirrors the counts.
+        self.assertEqual(sorted(payload["missing_fx_pairs"]),
+                         ["USDARS_CCL", "USDARS_MEP", "USDARS_OFFICIAL"])
+        self.assertEqual(
+            sorted(payload["missing_rate_keys"]),
+            [
+                "caucion_monthly_pct",
+                "expected_fx_devaluation_monthly_pct",
+                "money_market_monthly_pct",
+            ],
+        )
+
+    def test_cli_overrides_are_labelled_cli_override(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir, _NetworkBlocker():
+            out = Path(tmp_dir) / "m.json"
+            rc, output = _run(
+                [
+                    "--date",
+                    "2026-05-12",
+                    "--provider",
+                    "static-example",
+                    "--usdars-mep",
+                    "1234.5",
+                    "--money-market-monthly-pct",
+                    "3.0",
+                    "--out",
+                    str(out),
+                    "--json",
+                ]
+            )
+            self.assertEqual(rc, 0, msg=output)
+            payload = json.loads(output)
+            snapshot = load_manual_market_snapshot(out)
+        self.assertEqual(payload["provider_sources"]["fx:USDARS_MEP"], "cli_override")
+        self.assertEqual(
+            payload["provider_sources"]["rate:money_market_monthly_pct"],
+            "cli_override",
+        )
+        self.assertEqual(snapshot.fx_rates["USDARS_MEP"].provider, "cli_override")
+        self.assertEqual(snapshot.fx_rates["USDARS_MEP"].rate, 1234.5)
+        self.assertEqual(
+            snapshot.rates["money_market_monthly_pct"].provider, "cli_override"
+        )
+
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()
