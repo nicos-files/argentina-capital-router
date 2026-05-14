@@ -191,6 +191,143 @@ class RunManualDailyWorkflowTests(unittest.TestCase):
         self.assertEqual(rc, 2)
         self.assertTrue(err)
 
+    # ------------------------------------------------------------------
+    # --empty-portfolio
+    # ------------------------------------------------------------------
+
+    def test_empty_portfolio_runs_workflow_and_writes_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp = Path(tmp_dir)
+            rc, out, _ = self._run(
+                [
+                    "--date",
+                    "2026-05-12",
+                    "--market-snapshot",
+                    str(EXAMPLE_MARKET),
+                    "--empty-portfolio",
+                    "--artifacts-dir",
+                    str(tmp),
+                ]
+            )
+            self.assertEqual(rc, 0, msg=out)
+            # An on-disk empty portfolio snapshot must have been generated.
+            empty_path = tmp / "snapshots" / "empty_portfolio.json"
+            self.assertTrue(empty_path.exists())
+            # The standard plan + report artifacts must still be written.
+            self.assertTrue(
+                (tmp / "capital_routing" / "daily_capital_plan.json").exists()
+            )
+            self.assertTrue((tmp / "reports" / "daily_report.md").exists())
+            # The human summary surfaces the generated portfolio path.
+            self.assertIn("empty_portfolio.json", out)
+
+    def test_empty_portfolio_generates_valid_snapshot_content(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp = Path(tmp_dir)
+            rc, _, _ = self._run(
+                [
+                    "--date",
+                    "2026-05-12",
+                    "--market-snapshot",
+                    str(EXAMPLE_MARKET),
+                    "--empty-portfolio",
+                    "--artifacts-dir",
+                    str(tmp),
+                ]
+            )
+            self.assertEqual(rc, 0)
+            empty_path = tmp / "snapshots" / "empty_portfolio.json"
+            data = json.loads(empty_path.read_text(encoding="utf-8"))
+            self.assertTrue(data["manual_review_only"])
+            self.assertFalse(data["live_trading_enabled"])
+            self.assertEqual(data["cash"], [])
+            self.assertEqual(data["positions"], [])
+            self.assertEqual(data["source"], "generated_empty")
+            self.assertEqual(data["as_of"], "2026-05-12")
+            self.assertEqual(data["quality"]["completeness"], "complete")
+
+    def test_empty_portfolio_and_portfolio_snapshot_exit_usage(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp = Path(tmp_dir)
+            rc, out, _ = self._run(
+                [
+                    "--date",
+                    "2026-05-12",
+                    "--market-snapshot",
+                    str(EXAMPLE_MARKET),
+                    "--portfolio-snapshot",
+                    str(EXAMPLE_PORTFOLIO),
+                    "--empty-portfolio",
+                    "--artifacts-dir",
+                    str(tmp),
+                ]
+            )
+            self.assertEqual(rc, 2)
+            self.assertIn("mutually exclusive", out)
+            # Workflow must NOT have written any plan artifacts.
+            self.assertFalse(
+                (tmp / "capital_routing" / "daily_capital_plan.json").exists()
+            )
+
+    def test_neither_portfolio_flag_exits_usage(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp = Path(tmp_dir)
+            rc, out, _ = self._run(
+                [
+                    "--date",
+                    "2026-05-12",
+                    "--market-snapshot",
+                    str(EXAMPLE_MARKET),
+                    "--artifacts-dir",
+                    str(tmp),
+                ]
+            )
+            self.assertEqual(rc, 2)
+            self.assertIn("required", out)
+            self.assertFalse(
+                (tmp / "capital_routing" / "daily_capital_plan.json").exists()
+            )
+
+    def test_empty_portfolio_telegram_dry_run(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp = Path(tmp_dir)
+            rc, out, _ = self._run(
+                [
+                    "--date",
+                    "2026-05-12",
+                    "--market-snapshot",
+                    str(EXAMPLE_MARKET),
+                    "--empty-portfolio",
+                    "--artifacts-dir",
+                    str(tmp),
+                    "--telegram-dry-run",
+                ]
+            )
+            self.assertEqual(rc, 0, msg=out)
+            self.assertIn("dry_run: True", out)
+            # No real bot token must be required for the dry-run path.
+            self.assertNotIn("error:", out.lower())
+
+    def test_empty_portfolio_no_forbidden_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp = Path(tmp_dir)
+            rc, _, _ = self._run(
+                [
+                    "--date",
+                    "2026-05-12",
+                    "--market-snapshot",
+                    str(EXAMPLE_MARKET),
+                    "--empty-portfolio",
+                    "--artifacts-dir",
+                    str(tmp),
+                ]
+            )
+            self.assertEqual(rc, 0)
+            forbidden = list(tmp.rglob("execution.plan")) + list(
+                tmp.rglob("final_decision.json")
+            )
+            self.assertEqual(forbidden, [])
+
     def test_strict_inputs_fails_on_placeholder_warnings(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp = Path(tmp_dir)

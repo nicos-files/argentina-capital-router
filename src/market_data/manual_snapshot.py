@@ -331,6 +331,75 @@ def get_rate_input(
     return None
 
 
+def manual_market_snapshot_to_dict(
+    snapshot: ManualMarketSnapshot,
+) -> dict[str, Any]:
+    """Return a JSON-serialisable dict for ``snapshot``.
+
+    The output is round-trip compatible with
+    ``load_manual_market_snapshot``: writing this dict to disk and
+    reloading yields an equivalent snapshot. Quotes are emitted sorted by
+    symbol for deterministic file output.
+    """
+    quote_items: list[dict[str, Any]] = []
+    for symbol in sorted(snapshot.quotes):
+        q = snapshot.quotes[symbol]
+        entry: dict[str, Any] = {
+            "symbol": symbol,
+            "asset_class": q.asset_class,
+            "price": float(q.price),
+            "currency": q.currency,
+            "as_of": q.as_of,
+            "provider": q.provider,
+            "delayed": bool(q.delayed),
+        }
+        if q.notes:
+            entry["notes"] = q.notes
+        quote_items.append(entry)
+
+    fx_items: dict[str, dict[str, Any]] = {}
+    for pair in sorted(snapshot.fx_rates):
+        fx = snapshot.fx_rates[pair]
+        entry = {
+            "rate": float(fx.rate),
+            "as_of": fx.as_of,
+            "provider": fx.provider,
+            "delayed": bool(fx.delayed),
+        }
+        if fx.notes:
+            entry["notes"] = fx.notes
+        fx_items[pair] = entry
+
+    rate_items: dict[str, dict[str, Any]] = {}
+    for key in sorted(snapshot.rates):
+        rate = snapshot.rates[key]
+        entry = {
+            "value": float(rate.value),
+            "as_of": rate.as_of,
+            "provider": rate.provider,
+        }
+        if rate.notes:
+            entry["notes"] = rate.notes
+        rate_items[key] = entry
+
+    return {
+        "schema_version": snapshot.schema_version,
+        "snapshot_id": snapshot.snapshot_id,
+        "as_of": snapshot.as_of,
+        "source": snapshot.source,
+        "manual_review_only": True,
+        "live_trading_enabled": False,
+        "data_frequency": snapshot.data_frequency,
+        "quotes": quote_items,
+        "fx_rates": fx_items,
+        "rates": rate_items,
+        "quality": {
+            "warnings": list(snapshot.warnings),
+            "completeness": snapshot.completeness,
+        },
+    }
+
+
 def summarize_snapshot(snapshot: ManualMarketSnapshot) -> dict[str, Any]:
     return {
         "snapshot_id": snapshot.snapshot_id,
@@ -350,6 +419,7 @@ __all__ = [
     "ManualMarketSnapshot",
     "normalize_fx_pair",
     "load_manual_market_snapshot",
+    "manual_market_snapshot_to_dict",
     "snapshot_to_static_provider",
     "get_fx_rate",
     "get_rate_input",

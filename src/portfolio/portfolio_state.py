@@ -236,6 +236,96 @@ def get_position_by_symbol(
     return None
 
 
+def build_empty_portfolio_snapshot(
+    as_of: str,
+    base_currency: str = "USD",
+) -> ManualPortfolioSnapshot:
+    """Return a deterministic, empty ``ManualPortfolioSnapshot``.
+
+    Useful for users who want to run the daily capital plan without having
+    any current holdings (e.g. first time using the tool, or running the
+    workflow with cash-on-the-sidelines only).
+
+    Hard constraints preserved:
+      - ``manual_review_only=True``
+      - ``live_trading_enabled=False``
+      - no cash, no positions
+      - completeness=``complete`` (the snapshot is intentionally empty,
+        not partial)
+    """
+    if not isinstance(as_of, str) or not as_of.strip():
+        raise ValueError("as_of must be a non-empty YYYY-MM-DD string")
+    normalized_currency = (
+        str(base_currency).strip().upper() if base_currency else "USD"
+    )
+    return ManualPortfolioSnapshot(
+        schema_version="1.0",
+        snapshot_id=f"empty-portfolio-{as_of}",
+        as_of=as_of,
+        source="generated_empty",
+        base_currency=normalized_currency or "USD",
+        manual_review_only=True,
+        live_trading_enabled=False,
+        cash=tuple(),
+        positions=tuple(),
+        warnings=tuple(),
+        completeness="complete",
+    )
+
+
+def manual_portfolio_snapshot_to_dict(
+    snapshot: ManualPortfolioSnapshot,
+) -> dict[str, Any]:
+    """Return a JSON-serialisable dict for ``snapshot``.
+
+    The output is round-trip compatible with ``load_manual_portfolio_snapshot``:
+    writing this dict to disk and reloading produces an equivalent snapshot.
+    """
+    cash_items: list[dict[str, Any]] = []
+    for bal in snapshot.cash:
+        entry: dict[str, Any] = {
+            "currency": bal.currency,
+            "amount": float(bal.amount),
+            "bucket": bal.bucket,
+        }
+        if bal.notes:
+            entry["notes"] = bal.notes
+        cash_items.append(entry)
+
+    position_items: list[dict[str, Any]] = []
+    for pos in snapshot.positions:
+        entry = {
+            "symbol": pos.symbol,
+            "asset_class": pos.asset_class,
+            "quantity": float(pos.quantity),
+            "market": pos.market,
+            "bucket": pos.bucket,
+        }
+        if pos.average_cost is not None:
+            entry["average_cost"] = float(pos.average_cost)
+        if pos.average_cost_currency is not None:
+            entry["average_cost_currency"] = pos.average_cost_currency
+        if pos.notes:
+            entry["notes"] = pos.notes
+        position_items.append(entry)
+
+    return {
+        "schema_version": snapshot.schema_version,
+        "snapshot_id": snapshot.snapshot_id,
+        "as_of": snapshot.as_of,
+        "source": snapshot.source,
+        "base_currency": snapshot.base_currency,
+        "manual_review_only": True,
+        "live_trading_enabled": False,
+        "cash": cash_items,
+        "positions": position_items,
+        "quality": {
+            "warnings": list(snapshot.warnings),
+            "completeness": snapshot.completeness,
+        },
+    }
+
+
 def summarize_portfolio_snapshot(snapshot: ManualPortfolioSnapshot) -> dict[str, Any]:
     return {
         "snapshot_id": snapshot.snapshot_id,
@@ -252,7 +342,9 @@ __all__ = [
     "CashBalance",
     "PortfolioPosition",
     "ManualPortfolioSnapshot",
+    "build_empty_portfolio_snapshot",
     "load_manual_portfolio_snapshot",
+    "manual_portfolio_snapshot_to_dict",
     "get_position_by_symbol",
     "summarize_portfolio_snapshot",
 ]

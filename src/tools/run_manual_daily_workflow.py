@@ -31,6 +31,10 @@ from src.manual_execution.execution_tracker import (
     compare_plan_to_manual_executions,
     write_execution_comparison_artifacts,
 )
+from src.portfolio.portfolio_state import (
+    build_empty_portfolio_snapshot,
+    manual_portfolio_snapshot_to_dict,
+)
 from src.notifications.telegram_notifier import (
     TelegramConfig,
     load_telegram_config,
@@ -77,8 +81,21 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--portfolio-snapshot",
-        required=True,
-        help="Path to a manual portfolio snapshot JSON file.",
+        default=None,
+        help=(
+            "Path to a manual portfolio snapshot JSON file. Mutually "
+            "exclusive with --empty-portfolio."
+        ),
+    )
+    parser.add_argument(
+        "--empty-portfolio",
+        action="store_true",
+        help=(
+            "Generate an empty portfolio snapshot internally and run the "
+            "workflow as if the user has no current holdings. Mutually "
+            "exclusive with --portfolio-snapshot. Manual review only - "
+            "this never connects to a broker."
+        ),
     )
     parser.add_argument(
         "--executions",
@@ -531,9 +548,59 @@ def _build_report(
 # ---------------------------------------------------------------------------
 
 
+def _materialize_empty_portfolio(
+    target_date: str, artifacts_dir: Path
+) -> Path:
+    """Write an empty ``ManualPortfolioSnapshot`` under ``artifacts_dir``.
+
+    Returns the path so downstream loaders (validator, planner) see a real
+    file on disk - which keeps the workflow's date-mismatch, completeness,
+    and ``manual_review_only`` checks active for the generated snapshot
+    exactly like a user-provided one.
+    """
+    snapshot = build_empty_portfolio_snapshot(target_date)
+    path = artifacts_dir / "snapshots" / "empty_portfolio.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = manual_portfolio_snapshot_to_dict(snapshot)
+    with path.open("w", encoding="utf-8") as fh:
+        json.dump(payload, fh, indent=2, sort_keys=True)
+        fh.write("\n")
+    return path
+
+
 def run(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
     target_date = _resolve_date(args.date)
     artifacts_dir = _resolve_artifacts_dir(args.artifacts_dir, target_date)
+
+    # Empty-portfolio mode generates a snapshot on disk so the validator
+    # and planner see it the same way as a user-provided file. The flag
+    # is mutually exclusive with --portfolio-snapshot; that exclusivity
+    # is enforced at the entrypoint in main().
+    if bool(getattr(args, "empty_portfolio", False)):
+        try:
+            empty_path = _materialize_empty_portfolio(
+                target_date, artifacts_dir
+            )
+        except OSError as exc:
+            report = _build_report(
+                target_date=target_date,
+                artifacts_dir=artifacts_dir,
+                args=args,
+                validation_summary={"status": "usage_error"},
+                validation_rc=_EXIT_FAILURE,
+                recommendation=None,
+                plan_paths={},
+                comparison=None,
+                comparison_paths={},
+                status="empty_portfolio_failed",
+            )
+            report["plan_error"] = (
+                f"could not write empty portfolio snapshot: {exc}"
+            )
+            return _EXIT_FAILURE, report
+        # Make the synthetic path visible to the rest of the orchestrator.
+        args.portfolio_snapshot = str(empty_path)
+        args.empty_portfolio_path = str(empty_path)
 
     validation_rc, validation_summary = _run_validation(args, target_date)
     if validation_rc != _EXIT_OK:
@@ -642,12 +709,50 @@ def run(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
     return exit_code, report
 
 
+def _validate_portfolio_args(args: argparse.Namespace) -> Optional[str]:
+    """Return an error string if the portfolio-related flags are misused."""
+    has_path = bool(args.portfolio_snapshot)
+    has_empty = bool(getattr(args, "empty_portfolio", False))
+    if has_path and has_empty:
+        return (
+            "--portfolio-snapshot and --empty-portfolio are mutually "
+            "exclusive; choose exactly one."
+        )
+    if not has_path and not has_empty:
+        return (
+            "one of --portfolio-snapshot or --empty-portfolio is required."
+        )
+    return None
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = _build_arg_parser()
     try:
         args = parser.parse_args(argv)
     except SystemExit as exc:
         return _EXIT_USAGE if int(exc.code or 0) != 0 else _EXIT_OK
+
+    portfolio_error = _validate_portfolio_args(args)
+    if portfolio_error is not None:
+        if args.as_json:
+            print(
+                json.dumps(
+                    {
+                        "status": "usage_error",
+                        "errors": [portfolio_error],
+                        "manual_review_only": True,
+                        "live_trading_enabled": False,
+                    },
+                    indent=2,
+                    sort_keys=True,
+                )
+            )
+        else:
+            print("Manual review only. No live trading. No broker automation.")
+            print(f"argentina-capital-router manual daily workflow")
+            print(f"  status: usage_error")
+            print(f"  error: {portfolio_error}")
+        return _EXIT_USAGE
 
     exit_code, report = run(args)
     if args.as_json:

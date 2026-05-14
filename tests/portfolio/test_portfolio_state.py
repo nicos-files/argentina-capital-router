@@ -5,8 +5,10 @@ import unittest
 from pathlib import Path
 
 from src.portfolio.portfolio_state import (
+    build_empty_portfolio_snapshot,
     get_position_by_symbol,
     load_manual_portfolio_snapshot,
+    manual_portfolio_snapshot_to_dict,
     summarize_portfolio_snapshot,
 )
 
@@ -115,6 +117,58 @@ class InvalidSnapshotTests(unittest.TestCase):
     def test_missing_file_raises(self) -> None:
         with self.assertRaises(ValueError):
             load_manual_portfolio_snapshot(Path("/nonexistent/portfolio.json"))
+
+
+class BuildEmptyPortfolioSnapshotTests(unittest.TestCase):
+    def test_returns_complete_empty_portfolio(self) -> None:
+        snap = build_empty_portfolio_snapshot("2026-05-12")
+        self.assertEqual(snap.as_of, "2026-05-12")
+        self.assertEqual(snap.snapshot_id, "empty-portfolio-2026-05-12")
+        self.assertEqual(snap.source, "generated_empty")
+        self.assertEqual(snap.base_currency, "USD")
+        self.assertEqual(snap.completeness, "complete")
+        self.assertEqual(snap.cash, tuple())
+        self.assertEqual(snap.positions, tuple())
+        self.assertEqual(snap.warnings, tuple())
+
+    def test_manual_review_only_true_and_live_trading_false(self) -> None:
+        snap = build_empty_portfolio_snapshot("2026-05-12")
+        self.assertIs(snap.manual_review_only, True)
+        self.assertIs(snap.live_trading_enabled, False)
+
+    def test_custom_base_currency(self) -> None:
+        snap = build_empty_portfolio_snapshot("2026-05-12", base_currency="eur")
+        self.assertEqual(snap.base_currency, "EUR")
+
+    def test_empty_base_currency_falls_back_to_usd(self) -> None:
+        snap = build_empty_portfolio_snapshot("2026-05-12", base_currency="")
+        self.assertEqual(snap.base_currency, "USD")
+
+    def test_invalid_as_of_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            build_empty_portfolio_snapshot("")
+        with self.assertRaises(ValueError):
+            build_empty_portfolio_snapshot("   ")
+
+    def test_round_trip_via_serializer_loader(self) -> None:
+        """Writing the empty snapshot and reloading it yields an equivalent
+        snapshot that still passes the loader's hard checks."""
+        snap = build_empty_portfolio_snapshot("2026-05-12")
+        payload = manual_portfolio_snapshot_to_dict(snap)
+        # The serialized payload must satisfy the loader's contract.
+        self.assertTrue(payload["manual_review_only"])
+        self.assertFalse(payload["live_trading_enabled"])
+        self.assertEqual(payload["cash"], [])
+        self.assertEqual(payload["positions"], [])
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            path = Path(tmp_dir) / "empty.json"
+            path.write_text(json.dumps(payload), encoding="utf-8")
+            reloaded = load_manual_portfolio_snapshot(path)
+        self.assertEqual(reloaded.snapshot_id, snap.snapshot_id)
+        self.assertEqual(reloaded.cash, tuple())
+        self.assertEqual(reloaded.positions, tuple())
+        self.assertEqual(reloaded.completeness, "complete")
 
 
 if __name__ == "__main__":

@@ -34,6 +34,42 @@ python3 -m src.tools.create_manual_execution_template \
 Open the generated files and replace every `TODO` with real values before
 running the workflow.
 
+### Or: build the market snapshot automatically
+
+If you do not want to type every CEDEAR price by hand, you can produce a
+deterministic market snapshot via the provider chain. See
+[`docs/automated_market_snapshot.md`](automated_market_snapshot.md) for
+the full reference. Short version:
+
+```bash
+python3 -m src.tools.build_market_snapshot \
+  --date 2026-05-12 \
+  --provider static-example \
+  --usdars-mep 1200 \
+  --usdars-ccl 1220 \
+  --usdars-official 1000 \
+  --money-market-monthly-pct 2.5 \
+  --caucion-monthly-pct 2.8 \
+  --expected-fx-devaluation-monthly-pct 1.5 \
+  --out snapshots/market/2026-05-12.json
+```
+
+The only supported provider today is `static-example` (offline,
+deterministic, **not real market data**). Review every value before
+treating the resulting snapshot as authoritative.
+
+### Running without current holdings
+
+If you do not yet have a portfolio snapshot (first run, cash-on-the-
+sidelines only, etc.), pass `--empty-portfolio` to the orchestrator
+instead of `--portfolio-snapshot`. The workflow will generate an empty
+portfolio snapshot on disk under
+`<artifacts-dir>/snapshots/empty_portfolio.json` and run the rest of the
+pipeline against it.
+
+`--empty-portfolio` and `--portfolio-snapshot` are mutually exclusive;
+exactly one of them is required.
+
 ## Validate inputs only (read-only)
 
 ```bash
@@ -87,6 +123,12 @@ When `--executions` is provided the workflow also produces:
 The summary then includes follow rate and matched/partial/missed/extra counts.
 
 ## Optional: Telegram notifications
+
+Telegram is intentionally a **later step** in the routine: build the
+market snapshot, run the workflow, review the generated artifacts under
+`snapshots/outputs/<date>/`, and only then opt in to a summary on your
+phone. The notifier is optional and the daily plan / report do not
+depend on it.
 
 The workflow can also send a concise Telegram summary after a successful
 run. See [`docs/telegram_notifications.md`](telegram_notifications.md) for
