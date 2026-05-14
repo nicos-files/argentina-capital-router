@@ -165,6 +165,67 @@ None of these are orders. None of them are execution plans. Use them as a
 manual checklist when you place trades yourself, on your own broker, on your
 own time.
 
+## 5. (Optional) Assemble a snapshot from a provider chain
+
+If you want to bootstrap a snapshot from a deterministic example, or fall
+back to a hand-edited manual snapshot when other free providers are
+unavailable, the codebase ships a small **provider chain** abstraction in
+`src/market_data/snapshot_providers.py`.
+
+The chain is strictly no-cost and offline today:
+
+- `StaticExampleSnapshotProvider` - deterministic in-memory fixture used by
+  tests and demos. **Not real market data.**
+- `ManualFileSnapshotProvider(path)` - wraps an on-disk
+  `manual_market_snapshot.json` and serves only the symbols / FX pairs /
+  rate keys you ask for.
+- `assemble_market_snapshot(request, providers)` - walks providers in order
+  (first-hit-wins per item), reports `provider_sources`, fills in
+  `missing_symbols` / `missing_fx_pairs` / `missing_rate_keys`, and labels
+  the resulting `ManualMarketSnapshot` as `complete` / `partial` /
+  `minimal` so the existing **input quality validators** can promote gaps
+  to errors under `--strict`.
+
+Example (Python):
+
+```python
+from src.market_data.snapshot_providers import (
+    MarketSnapshotRequest,
+    StaticExampleSnapshotProvider,
+    ManualFileSnapshotProvider,
+    assemble_market_snapshot,
+)
+
+request = MarketSnapshotRequest(
+    as_of="2026-05-12",
+    symbols=("SPY", "GGAL"),
+    fx_pairs=("USDARS_MEP",),
+    rate_keys=("money_market_monthly_pct",),
+)
+
+assembled = assemble_market_snapshot(
+    request,
+    [
+        StaticExampleSnapshotProvider(),
+        ManualFileSnapshotProvider("snapshots/market/2026-05-12.json"),
+    ],
+)
+
+# assembled.snapshot is a ManualMarketSnapshot suitable for the validators
+# and the daily plan. assembled.missing_* and assembled.warnings tell you
+# what was not covered and which provider served each item.
+```
+
+Free-tier / public providers will plug into the same `MarketSnapshotProvider`
+abstraction in a later slice. Hard rules for any future provider:
+
+- API keys MUST come from environment variables or explicit CLI arguments.
+- A missing key MUST degrade to an empty `PartialMarketSnapshot` + warning,
+  never crash the workflow (unless the caller asks for strict mode).
+- API keys MUST NOT be written to artifacts, printed, or embedded in
+  exception messages.
+- Tests MUST mock the HTTP boundary and MUST NOT hit the network.
+
 ## Reminders
 
 - **Manual review only.** This tool does not place orders. It does not
