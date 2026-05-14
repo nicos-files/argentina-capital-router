@@ -490,6 +490,13 @@ def assemble_market_snapshot(
     )
 
 
+# Re-export the Yahoo provider so callers can import every provider from a
+# single module without importing transport details. Import is deferred to
+# the bottom of the module to avoid a circular import (the Yahoo module
+# itself imports the abstract base from this module).
+from .yahoo_snapshot_provider import YahooArgentinaMarketDataProvider  # noqa: E402
+
+
 __all__ = [
     "AssembledMarketSnapshot",
     "ManualFileSnapshotProvider",
@@ -497,5 +504,6 @@ __all__ = [
     "MarketSnapshotRequest",
     "PartialMarketSnapshot",
     "StaticExampleSnapshotProvider",
+    "YahooArgentinaMarketDataProvider",
     "assemble_market_snapshot",
 ]

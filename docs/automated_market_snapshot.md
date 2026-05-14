@@ -19,18 +19,47 @@ hand into a manual snapshot. It is intentionally **offline and no-cost**.
 - A safety check after writing: the tool re-loads the output file to make
   sure it round-trips before exiting with success.
 
+## Available providers
+
+| Provider          | Real data? | Auth? | Network? | Coverage      |
+| ----------------- | ---------- | ----- | -------- | ------------- |
+| `static-example`  | **No** (deterministic fixture) | No | No  | Full universe |
+| `yahoo`           | Yes (delayed, read-only)       | No | Yes | Best-effort   |
+
+### `static-example`
+
+Deterministic in-memory fixture. Use it for demos, smoke tests, and any
+flow that must run without internet access. The numbers are illustrative
+round figures and **are not real market data**.
+
+### `yahoo` (free, no-auth, read-only, delayed)
+
+Calls Yahoo Finance's public `v7/finance/quote` endpoint. Properties:
+
+- **Read-only**, **delayed**, **best-effort**.
+- **No API key**, **no payment**, **no login**.
+- Network: hits a single HTTPS endpoint via stdlib `urllib`.
+- Coverage for Argentina equities and CEDEARs may be incomplete; missing
+  symbols are skipped (warning + partial snapshot), never substituted
+  with invented prices.
+- Symbol resolution uses the universe's
+  `source_symbol_map["yfinance"]` field (e.g. `GGAL.BA`). Assets without
+  a `yfinance` entry are reported as `unmapped` in the warnings.
+- Currently serves quotes only; FX rates and rate inputs in this slice
+  must come from `--usdars-*` / `--*-pct` CLI flags or a manually
+  edited fallback snapshot.
+- HTTP, JSON, and per-symbol failures degrade gracefully: the provider
+  returns an empty `PartialMarketSnapshot` plus a warning, never raises.
+
 ## What it is **not** in this slice
 
-- **Not real market data.** The only supported provider today is
-  `static-example`, which serves deterministic illustrative prices that
-  are explicitly **not real**. Treat any snapshot you build with this
-  tool as a development / demo / smoke-test artifact unless you replace
-  the values manually.
 - **Not a broker connector.** There is no order placement, no execution,
   no balance fetching, no holdings sync. The output describes prices and
   rates only.
-- **Not an HTTP fetcher.** This slice does not ship a Yahoo, Alpha
-  Vantage, IOL, or BYMA provider. There is no network code path on disk.
+- **Not for intraday trading.** Yahoo data is delayed and the workflow
+  has no intraday assumptions anywhere.
+- **Not authoritative.** Always review every value before treating an
+  auto-built snapshot as the basis for a real trade.
 
 ## Free / no-cost data policy
 
@@ -51,6 +80,8 @@ repository-wide policy:
 
 ## CLI
 
+### Static example (offline, deterministic)
+
 ```bash
 python3 -m src.tools.build_market_snapshot \
   --date 2026-05-12 \
@@ -64,6 +95,33 @@ python3 -m src.tools.build_market_snapshot \
   --out snapshots/market/2026-05-12.json
 ```
 
+### Yahoo (free, no-auth, best-effort)
+
+```bash
+python3 -m src.tools.build_market_snapshot \
+  --date 2026-05-12 \
+  --provider yahoo \
+  --usdars-mep 1200 \
+  --usdars-ccl 1220 \
+  --usdars-official 1000 \
+  --money-market-monthly-pct 2.5 \
+  --caucion-monthly-pct 2.8 \
+  --expected-fx-devaluation-monthly-pct 1.5 \
+  --out snapshots/market/2026-05-12.json
+```
+
+If Yahoo coverage is incomplete (it usually will be for the AR /
+CEDEAR universe), you have three options:
+
+- **Accept the partial snapshot.** The downstream workflow still runs;
+  missing symbols simply do not get allocations. Use `--strict-inputs`
+  on `run_manual_daily_workflow` if you want partial snapshots to fail
+  loudly instead.
+- **Fall back to `static-example`** for demos and smoke tests where
+  having values for every symbol matters more than realism.
+- **Hand-edit the output file** to fill in or correct prices before
+  running the workflow. The file is plain JSON.
+
 Useful flags:
 
 - `--date YYYY-MM-DD` (required) - the `as_of` date stamped into every
@@ -76,7 +134,9 @@ Useful flags:
   (default: `config/market_universe/ar_long_term.json`).
 - `--include-disabled` - include disabled / non-long-term assets in the
   request. By default only enabled long-term assets are requested.
-- `--provider static-example` - currently the only choice.
+- `--provider {static-example,yahoo}` - which provider to use. See the
+  table above. `static-example` is fully offline; `yahoo` is best-effort
+  and may produce a partial snapshot.
 - `--usdars-mep`, `--usdars-ccl`, `--usdars-official` - override FX rates.
   When supplied they win over whatever the chain returned and are
   tagged `provider=cli_override` inside the snapshot.

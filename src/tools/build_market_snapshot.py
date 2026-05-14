@@ -39,6 +39,7 @@ from src.market_data.snapshot_providers import (
     MarketSnapshotProvider,
     MarketSnapshotRequest,
     StaticExampleSnapshotProvider,
+    YahooArgentinaMarketDataProvider,
     assemble_market_snapshot,
 )
 
@@ -57,7 +58,7 @@ _FX_MEP = "USDARS_MEP"
 _FX_CCL = "USDARS_CCL"
 _FX_OFFICIAL = "USDARS_OFFICIAL"
 
-_VALID_PROVIDERS = ("static-example",)
+_VALID_PROVIDERS = ("static-example", "yahoo")
 
 _EXIT_OK = 0
 _EXIT_FAILURE = 1
@@ -95,8 +96,12 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         choices=_VALID_PROVIDERS,
         default="static-example",
         help=(
-            "Provider to use. In this slice only 'static-example' is "
-            "supported. No real HTTP, no paid data, no API keys."
+            "Provider to use. 'static-example' = deterministic offline "
+            "fixture (default, demo/test data only). 'yahoo' = free, "
+            "no-auth, read-only, delayed Yahoo Finance quotes; coverage "
+            "for Argentina / CEDEAR symbols may be incomplete and missing "
+            "symbols produce a partial snapshot. No paid data, no API "
+            "keys, no broker automation regardless of provider."
         ),
     )
     parser.add_argument(
@@ -180,9 +185,22 @@ def _load_universe(
     return get_enabled_long_term_assets(resolved)
 
 
-def _build_providers(provider_name: str) -> list[MarketSnapshotProvider]:
+def _build_providers(
+    provider_name: str,
+    *,
+    universe_path: Optional[str] = None,
+) -> list[MarketSnapshotProvider]:
     if provider_name == "static-example":
         return [StaticExampleSnapshotProvider()]
+    if provider_name == "yahoo":
+        # Yahoo only: no automatic fallback to static-example in this slice.
+        # The user controls the fallback explicitly by re-running with a
+        # different --provider, or by hand-editing the partial snapshot.
+        return [
+            YahooArgentinaMarketDataProvider(
+                universe_path=universe_path,
+            )
+        ]
     raise ValueError(f"unsupported provider: {provider_name!r}")
 
 
@@ -394,7 +412,7 @@ def run(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
     requested_rates = (_RATE_KEY_MMM, _RATE_KEY_CAUCION, _RATE_KEY_FX_DEV)
 
     try:
-        providers = _build_providers(args.provider)
+        providers = _build_providers(args.provider, universe_path=args.universe)
     except ValueError as exc:
         return _EXIT_USAGE, {
             "status": "usage_error",
